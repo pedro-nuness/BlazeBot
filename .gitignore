@@ -1,0 +1,30 @@
+
+*.vsidx
+*.lock
+*.db
+*.db-shm
+.vs/BlazeBot/v17/.suo
+*.db-wal
+*.opendb
+*.ipch
+*.tlog
+*.ipdb
+*.iobj
+*.log
+*.ifc
+*.obj
+*.command
+*.pdb
+x64/Release/BlazeBot - Copia.exe
+x64/Release/Scan.txt
+x64/Release/Results.txt
+x64/Release/DataBlaze2.txt
+x64/Release/DataBlaze.txt
+x64/Release/DataBlaze - Copia.txt
+BlazeBot/x64/Release/codes.h.ifc.d.json
+*.recipe
+BlazeBot/x64/Release/codes.h_9A73B8D30868D581.ifc.dt.module.json
+BlazeBot/x64/Release/codes.h_9A73B8D30868D581.ifc.dt.d.json
+BlazeBot/x64/Release/codes.h.module.json
+BlazeBot/Scan.txt
+BlazeBot/Results.txt
