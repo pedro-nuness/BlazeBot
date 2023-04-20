@@ -10,10 +10,28 @@
 
 using json = nlohmann::json;
 
+enum METHODS
+{
+    MARTINGALE,
+    FIBONACCI,
+    MATH
+};
+
+enum BETRESULT
+{
+    PREDICTION,
+    WON,
+    LOSE
+};
+
+
 class Bet {
 
     Color color;
-    double chance;
+    double chance = -1;
+    int Correct = PREDICTION;
+    int Method = -1;
+    float BetValue = 0;
 
 public:
     Bet( )
@@ -22,10 +40,44 @@ public:
         this->chance = 0;
     }
 
-    Bet( Color color, double chance)
+    Bet( Color color , double chance, int correct, int method )
     {
         this->color = color;
         this->chance = chance;
+        this->Correct = correct;
+        this->Method = method;
+    }
+
+    void DoBet( float value, float currency) {
+        if ( value <= currency )
+            this->BetValue = value;
+        else 
+            this->BetValue = currency;
+    }
+
+    bool DidBet( ) {
+        return (bool)this->BetValue;
+    }
+
+    float GetBetAmount( ) {
+        return this->BetValue;
+    }
+
+
+    void SetCorrect(int correct ) {
+        this->Correct = correct;
+    }
+
+    void SetMethod( int method  ) {
+        this->Method = method;
+    }
+
+    int GetBetResult( ) {
+        return this->Correct;
+    }
+
+    int GetMethod( ) {
+        return this->Method;
     }
 
     Color GetColor( ) {
@@ -38,10 +90,34 @@ public:
 
 };
 
+class Player {
+    float StartMoney = -1;
+    float CurrentMoney = -1;
+public:
+    Player( float money ) {
+        this->CurrentMoney = money;
+        this->StartMoney = money;
+    } //Settup money
+
+    float GetProfit( ) {
+        return CurrentMoney - StartMoney;
+    }
+
+    float GetBalance( ) { return this->CurrentMoney; }
+    float GetInitialMoney( ) { return this->StartMoney; }
+    void IncreaseBalance( float value ) { this->CurrentMoney = this->CurrentMoney + value; }
+    void DecreaseBalance( float value ) { this->CurrentMoney = this->CurrentMoney - value; }
+
+    bool IsSetupped( ) {
+        return this->CurrentMoney != -1;
+    }
+
+};
+
 class BetManager {
 private:
     DoublePredictor* predictor;
-    std::vector<ColorManagement> bets;
+    std::vector<Bet> bets;
     std::string filename;
 
     int reds;
@@ -59,6 +135,8 @@ private:
 
     bool GameMode;
 
+    Player CurrentPlayer = Player(-1);
+
 public:
 
     BetManager( const std::string & filename , DoublePredictor * predictor );
@@ -66,7 +144,7 @@ public:
     Bet GetCurrentPrediction( );
     Bet GetLastPrediction( );
 
-    void PredictBets( );
+    Bet PredictBets( Color c, double chance, float current_balance );
 
     int Consecutive( Color c ) {
 
@@ -74,15 +152,14 @@ public:
 
     bool OnGameMode( bool * set = nullptr );
     void setupData( );
-    void addColor( int color , bool write = true);   
+    void addColor( json play , bool write = true);   
     void ClearData( );
-    void SetCurrentPrediction( Color col, double chance );
+    void SetCurrentPrediction( Bet bet );
 
     Color nextBet( Color prediction , float predictionChance , double * success );
 
     static std::vector<json> blazeAPI( );
-    const std::vector<ColorManagement> & getBets( ) const;
-
+    const std::vector<Bet> & getBets( ) const;
 
     int getReds( ) const;
     int getBlues( ) const;

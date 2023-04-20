@@ -33,15 +33,9 @@
     <ClInclude Include="BetManagement\BetManagement.h">
       <Filter>Arquivos de Cabeçalho</Filter>
     </ClInclude>
-    <ClInclude Include="Utils.hpp">
-      <Filter>Arquivos de Cabeçalho</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
-      <Filter>Arquivos de Origem</Filter>
-    </ClCompile>
-    <ClCompile Include="codes.h">
       <Filter>Arquivos de Origem</Filter>
     </ClCompile>
     <ClCompile Include="Colors\ColorManagement\ColorManagement.cpp">

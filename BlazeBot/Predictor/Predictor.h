@@ -69,7 +69,7 @@ private:
 public:
     int Beats;
     int Misses;
-    Color newest_color;
+    Color LastColor;
   
 
     DoublePredictor( );

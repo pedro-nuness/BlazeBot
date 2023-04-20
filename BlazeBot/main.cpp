@@ -10,6 +10,15 @@
 #include <Windows.h>
 #include <fstream>
 
+
+std::string filename = "Scan.txt";
+bool Stop = false;
+
+DoublePredictor predictor;
+
+BetManager betManager( filename , &predictor );
+Utils usefull;
+
 std::chrono::system_clock::time_point CurrentTime( ) {
 	return std::chrono::system_clock::now( );
 }
@@ -57,25 +66,33 @@ std::string ColorToString( Color col ) {
 	}
 }
 
-void DrawPred( std::string pred , Color col , float chance )
+void PrintColor( Utils usefull , Color c )
 {
-	std::cout << pred;
-	switch ( col ) {
-	case Color::Red:
-		std::cout << "Red";
+	switch ( c ) {
+	case Red:
+		usefull.ColoredText( "O" , RED );
 		break;
-	case Color::Blue:
-		std::cout << "Black";
+	case Blue:
+		usefull.ColoredText( "O" , GRAY );
 		break;
-	case Color::White:
-		std::cout << "White";
-		break;
-	case Color::Null:
-		std::cout << "Null";
+	case White:
+		usefull.ColoredText( "O" , WHITE );
 		break;
 	}
 
-	std::cout << " ( " << int( chance * 100 ) << "% )" << "\n\n";
+}
+
+void DrawPrediction( std::string label , Bet bet )
+{
+	std::cout << label;
+	if ( bet.GetColor( ) == Null )
+	{
+		std::cout << "None\n\n";
+		return;
+	}
+
+	PrintColor( usefull , bet.GetColor( ) );
+	std::cout << " ( " << int( bet.GetChance( ) * 100 ) << "% )\n\n";
 }
 
 
@@ -108,12 +125,6 @@ void WriteCorrects( BetManager BetManage ) {
 
 }
 
-
-using namespace std;
-
-bool Stop = false;
-
-DoublePredictor predictor;
 
 void SimulateGame(BetManager& bet ) {
 
@@ -179,55 +190,138 @@ void SimulateGame(BetManager& bet ) {
 	return;
 }
 
-void PrintColor( Utils usefull, Color c )
-{
-	switch ( c ) {
-	case Red:
-		usefull.ColoredText( "O" , RED );
-		break;
-	case Blue:
-		usefull.ColoredText( "O" , GRAY );
-		break;
-	case White:
-		usefull.ColoredText( "O" , WHITE );
-		break;
+
+
+void DrawGameHistory( ) {
+
+	if ( predictor.isStreak( ).StreakSize >= 2 )
+		std::cout << "Is Streak!\n\n";
+
+	std::cout << "Last results:\n";
+	auto history = predictor.GetHistory( );
+	if ( history.size( ) > 17 ) {
+		for ( int i = history.size( ) - 17; i < history.size( ); i++ )
+		{
+			auto color = history.at( i );
+			PrintColor( usefull , color );
+			std::cout << " ";
+		}
+		std::cout << "\n\n";
+	}
+}
+
+void DrawHits( ) {
+	double Corrects = betManager.getCorrects( );
+	double Wrongs = betManager.getWrongs( );
+	double SafeCorrects = betManager.getSafeCorrects( );
+	double SafeWrongs = betManager.getSafeWrongs( );
+	double TotalBets = Corrects + Wrongs;
+	double TotalSafeBets = SafeCorrects + SafeWrongs;
+
+	if ( TotalBets ) {
+		std::cout << "Hits: " << Corrects << "/" << TotalBets << " (" << ( Corrects / TotalBets ) * 100 << "% )\n\n";
 	}
 
+	if ( TotalSafeBets ) {
+		std::cout << "SafeHits:  " << SafeCorrects << "/" << TotalSafeBets << " (" << ( SafeCorrects / TotalSafeBets ) * 100 << "% )\n\n";
+	}
+}
+
+void DrawAccurracyTests( ) {
+
+	std::vector<double> tAccurracy = predictor.crossValidate( 2 );
+	static double MeanAccurracy = accumulate( tAccurracy.begin( ) , tAccurracy.end( ) , 0.0 ) / tAccurracy.size( );
+	static double BetterResults = 0;
+
+
+	std::cout << "Accuracy tests:" << std::endl;
+	for ( int i = 0; i < tAccurracy.size( ); i++ )
+		std::cout << "Accurracy [" << i << "]: " << tAccurracy[ i ] * 100 << "%" << std::endl;
+
+	std::cout << "\nMean accurracy: ";
+	if ( MeanAccurracy >= 0.5 )
+		usefull.ColoredText( std::to_string( MeanAccurracy ) , GREEN );
+	else if ( MeanAccurracy <= 0.35 )
+		usefull.ColoredText( std::to_string( MeanAccurracy ) , RED );
+	else
+		usefull.ColoredText( std::to_string( MeanAccurracy ) , YELLOW );
+	std::cout << std::endl;
+
+	std::cout << "\nBetter accurracy: ";
+	if ( BetterResults >= 0.5 )
+		usefull.ColoredText( std::to_string( BetterResults ) , GREEN );
+	else if ( BetterResults <= 0.35 )
+		usefull.ColoredText( std::to_string( BetterResults ) , RED );
+	else
+		usefull.ColoredText( std::to_string( BetterResults ) , YELLOW );
+	std::cout << std::endl;
+
+
+	if ( MeanAccurracy > BetterResults )
+	{
+		BetterResults = MeanAccurracy;
+	}
+
+
+	int TransitionsWindow = 3;
+	auto Transitions = predictor.GetTransitions( TransitionsWindow );
+	std::cout << "Found " << Transitions.size( ) << " transitions of " << TransitionsWindow << "!\n";
+
+}
+
+void DrawColorCount( ) {
+	int Reds = betManager.getReds( );
+	int Blues = betManager.getBlues( );
+	int Whites = betManager.getWhites( );
+
+	double pRedChance = predictor.getCertainty( Color::Red );
+	double pBlackChance = predictor.getCertainty( Color::Blue );
+	double pWhiteChance = predictor.getCertainty( Color::White );
+
+	std::cout << "Red: " << Reds << " ( " << pRedChance << " )" << std::endl;
+	std::cout << "Black: " << Blues << " ( " << pBlackChance << " )" << std::endl;
+	std::cout << "White: " << Whites << " ( " << pWhiteChance << " )" << std::endl;
+}
+
+void GetSavedGame( ) {
+	std::vector<std::string> content;
+
+	std::ifstream arquivo( filename , std::ifstream::binary );// abre o arquivo para leitura
+
+	if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
+		std::string linha;
+		while ( std::getline( arquivo , linha ) ) { // lê cada linha do arquivo
+			content.push_back( linha );
+		}
+		arquivo.close( ); // fecha o arquivo
+	}
+	else {
+		std::cout << "Não foi possível abrir o arquivo" << std::endl;
+	}
+
+	for ( auto c : content )
+	{
+		json curjs;
+
+		curjs = json::parse( c );
+
+		betManager.addColor( curjs , false );
+	}
 }
 
 
 int main( ) {
 	srand( time( 0 ) ); // Semente para a função rand()
 
+	float balance;
 
-	std::string filename = "Scan.txt";
-
-	BetManager betManager( filename , &predictor );
-	Utils usefull;
+	std::cout << "Insert Your Current Balance: ";
+	std::cin >> balance;
+	system( "cls" );
 
 
 	if ( Exist( filename ) ) {
-
-		std::vector<std::string> content;
-
-		std::ifstream arquivo( filename ); // abre o arquivo para leitura
-
-		if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
-			std::string linha;
-			while ( std::getline( arquivo , linha ) ) { // lê cada linha do arquivo
-				content.push_back( linha );
-			}
-			arquivo.close( ); // fecha o arquivo
-		}
-		else {
-			std::cout << "Não foi possível abrir o arquivo" << std::endl;
-		}
-
-		for ( auto c : content )
-		{
-			betManager.addColor( stoi( c ) , false );
-		}
-
+		GetSavedGame( );
 	}
 	
 
@@ -237,13 +331,11 @@ int main( ) {
 
 	std::chrono::system_clock::time_point OldTime;
 
-	Color OldPrediction = Null;
-	int OldChance = 999;
+	//Color OldPrediction = Null;
+	//int OldChance = 999;
+	Bet OldPrediction;
 
 	int OldTotal = -1;
-
-	double BetterResults = 0;
-
 
 	while ( true ) {
 		std::chrono::system_clock::time_point NowTime = CurrentTime( );
@@ -275,106 +367,22 @@ int main( ) {
 
 			system( "cls" );
 
-			int Reds = betManager.getReds( );
-			int Blues = betManager.getBlues( );
-			int Whites = betManager.getWhites( );
-
-			double pRedChance = predictor.getCertainty( Color::Red );
-			double pBlackChance = predictor.getCertainty( Color::Blue );
-			double pWhiteChance = predictor.getCertainty( Color::White );
-
-			//double rRedChance = predictor.getCertaintyRecoded( Color::Red );
-			//double rBlackChance = predictor.getCertaintyRecoded( Color::Blue );
-			//double rWhiteChance = predictor.getCertaintyRecoded( Color::White );
-
 			auto Prediction = predictor.predictNext( );
 			Color PredictedColor = Prediction.color;
 			double PredictionAccurracy = Prediction.chance;
 
-			double Corrects = betManager.getCorrects( );
-			double Wrongs = betManager.getWrongs( );
-			double SafeCorrects = betManager.getSafeCorrects( );
-			double SafeWrongs = betManager.getSafeWrongs( );
-			double TotalBets = Corrects + Wrongs;
-			double TotalSafeBets = SafeCorrects + SafeWrongs;
+			DrawColorCount( );
 
-			betManager.SetCurrentPrediction( PredictedColor , PredictionAccurracy );
+			DrawGameHistory( );
 
-			std::cout << "Red: " << Reds << " ( " << pRedChance << " )" << std::endl;
-			std::cout << "Black: " << Blues << " ( " << pBlackChance << " )" << std::endl;
-			std::cout << "White: " << Whites << " ( " << pWhiteChance << " )" << std::endl;
+			auto NextBet = betManager.PredictBets( PredictedColor, PredictionAccurracy, balance );
+			betManager.SetCurrentPrediction( NextBet );
+	
+			DrawPrediction( "\nPrediction: " , betManager.GetCurrentPrediction() );
+			DrawPrediction( "Last Prediction: " , betManager.GetLastPrediction() );
 
-			//std::cout << "rRed: " << Reds << " ( " << rRedChance << " )" << std::endl;
-			//std::cout << "rBlack: " << Blues << " ( " << rBlackChance << " )" << std::endl;
-			//std::cout << "rWhite: " << Whites << " ( " << rWhiteChance << " )" << std::endl;
-
-			if ( predictor.isStreak(  ).StreakSize >= 2)
-				std::cout << "\nIs Streak!\n";
-
-			DrawPred( "\nPrediction: " , PredictedColor , PredictionAccurracy );
-
-			DrawPred( "Last Prediction: " , betManager.GetLastPrediction( ).GetColor( ) , betManager.GetLastPrediction( ).GetChance( ) );
-
-			std::cout << "Last results:\n";
-			auto history = predictor.GetHistory( );
-			if ( history.size( ) > 17 ) {
-				for ( int i = history.size( ) - 17; i < history.size( ) ; i++ )
-				{
-					auto color = history.at( i );
-					PrintColor( usefull,  color );
-					std::cout << " ";
-				}
-				std::cout << "\n\n";
-			}
+			DrawAccurracyTests( );
 			
-
-
-
-			if ( TotalBets ) {
-				std::cout << "Hits: " << Corrects << "/" << TotalBets << " (" << ( Corrects / TotalBets ) * 100 << "% )\n\n";
-			}
-
-			if ( TotalSafeBets ) {
-				std::cout << "SafeHits:  " << SafeCorrects << "/" << TotalSafeBets << " (" << ( SafeCorrects / TotalSafeBets ) * 100 << "% )\n\n";
-			}
-			vector<double> tAccurracy = predictor.crossValidate( 2 );
-			double MeanAccurracy = accumulate( tAccurracy.begin( ) , tAccurracy.end( ) , 0.0 ) / tAccurracy.size( );
-
-			std::cout << "Accuracy tests:" << endl;
-			for ( int i = 0; i < tAccurracy.size( ); i++ )
-				std::cout << "Accurracy [" << i << "]: " << tAccurracy[ i ] * 100 << "%" << endl;
-
-			std::cout << "\nMean accurracy: ";
-			if ( MeanAccurracy >= 0.5 )
-				usefull.ColoredText( std::to_string( MeanAccurracy ) , GREEN );	
-			else if ( MeanAccurracy <= 0.35 )		
-				usefull.ColoredText( std::to_string( MeanAccurracy ) , RED );
-			else
-				usefull.ColoredText( std::to_string( MeanAccurracy ) , YELLOW );
-			std::cout << std::endl;
-
-			std::cout << "\nBetter accurracy: ";
-			if ( BetterResults >= 0.5 )
-				usefull.ColoredText( std::to_string( BetterResults ) , GREEN );
-			else if ( BetterResults <= 0.35 )
-				usefull.ColoredText( std::to_string( BetterResults ) , RED );
-			else
-				usefull.ColoredText( std::to_string( BetterResults ) , YELLOW );
-			std::cout << std::endl;
-
-
-			if ( MeanAccurracy > BetterResults )
-			{
-				BetterResults = MeanAccurracy;
-			}
-
-
-			int TransitionsWindow = 3;
-			auto Transitions = predictor.GetTransitions( TransitionsWindow );
-			std::cout << "Found " << Transitions.size( ) << " transitions of " <<TransitionsWindow << "!\n";
-
-			OldPrediction = PredictedColor;
-			OldChance = PredictionAccurracy;
 		}
 
 		if ( !setup )

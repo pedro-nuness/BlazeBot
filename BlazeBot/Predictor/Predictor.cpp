@@ -100,7 +100,7 @@ double DoublePredictor::getCertainty( Color c ) {
 	}
 
 
-	int size = history.size( ) / 5;
+	int size = 5;
 
 	size_t window_size = size;
 	double alpha = 0.7;
@@ -127,6 +127,7 @@ double DoublePredictor::getCertainty( Color c ) {
 			ColorPresence++;
 	}
 	ColorPresence /= history.size( );
+	
 
 	//Fixed entropy and color presence
 	auto ColorEntropy = -ColorPresence * log2( ColorPresence ) - ( 1 - ColorPresence ) * log2( 1 - ColorPresence );
@@ -134,7 +135,11 @@ double DoublePredictor::getCertainty( Color c ) {
 	std::vector<double> SmoothedHistory( history.size( ) , 0 );
 	SmoothedHistory[ 0 ] = ( history[ 0 ] == c ) ? 1.0 : 0.0;
 	for ( size_t i = 1; i < history.size( ); i++ ) {
-		SmoothedHistory[ i ] = alpha * ( ( history[ i ] == c ) ? 1.0 : 0.0 ) + ( 1 - alpha ) * SmoothedHistory[ i - 1 ];
+
+		double base_value = history[ i ] == c ? 1.0 : 0.0;
+		double reverse_value = 1.0 - alpha;
+
+		SmoothedHistory[ i ] = (alpha * base_value ) + (reverse_value  * SmoothedHistory[ i - 1 ] );
 	}
 
 	double predicted_probability = 0.0;
@@ -624,55 +629,30 @@ Prediction DoublePredictor::predictNext( ) {
 		return Final_Pred;
 	}
 
-	//Primeiramente, vamos verificar a existencia de cores sequenciais
-	Streak streak = isStreak( );
-	if ( streak.StreakSize ) {
-		//We have a streak, let's see it
-		if ( streak.StreakSize >= 4 ) {
-			//We have a big streak, don't bet anything
-			// R, R, R, R -> ?
-			Final_Pred.color = Null;
-			Final_Pred.chance = 0.0f;
-			return Final_Pred;
-		}
-		else if ( streak.StreakSize >= 2 ) {
-			//Small streak
-			//R, R -> B
-			Color inversecolor = InverseColor( streak.color );
-			if ( inversecolor != Null ) {
-				Final_Pred.color = inversecolor;
-				Final_Pred.chance = getCertainty( inversecolor );
-				return Final_Pred;
-			}
 
-		}
-
-	}
-
-
-	std::vector<Color> Sequence;
-	int Unmatches = 0;
-	int Count = 0;
-	for ( int i = history.size( ) - 3; i < history.size( ); i++ )
-	{
-		auto color = history.at( i );
-		Sequence.emplace_back( color );
-		if ( Count ) {
-			if ( Sequence.at( Count - 1 ) != color )
-				Unmatches++;
-		}
-		//B, R, B -> R
-		Count++;
-	}
-
-	if ( Unmatches == Count )
-	{
-		if ( !Sequence.empty( ) ) {
-			Final_Pred.color = Sequence.at( 1 );
-			Final_Pred.chance = getCertainty( Sequence.at( 1 ) );
-			return Final_Pred;
-		}
-	}
+	//std::vector<Color> Sequence;
+	//int Unmatches = 0;
+	//int Count = 0;
+	//for ( int i = history.size( ) - 3; i < history.size( ); i++ )
+	//{
+	//	auto color = history.at( i );
+	//	Sequence.emplace_back( color );
+	//	if ( Count ) {
+	//		if ( Sequence.at( Count - 1 ) != color )
+	//			Unmatches++;
+	//	}
+	//	//B, R, B -> R
+	//	Count++;
+	//}
+	//
+	//if ( Unmatches == Count )
+	//{
+	//	if ( !Sequence.empty( ) ) {
+	//		Final_Pred.color = Sequence.at( 1 );
+	//		Final_Pred.chance = getCertainty( Sequence.at( 1 ) );
+	//		return Final_Pred;
+	//	}
+	//}
 
 	//Historico presente no site da blaze, ultima jogadas
 	Transition GameTransition = GetGameTransition( );
@@ -682,67 +662,67 @@ Prediction DoublePredictor::predictNext( ) {
 
 	for ( int i = 0; i < 6; i++ )
 		ColorsPresence.emplace_back( 0 );
-	
+
 	for ( auto color : GameTransition.Colors ) {
 		ColorsPresence.at( color )++;
 	}
 	//Organiza o vector em ordem de presenca
 	std::sort( ColorsPresence.begin( ) , ColorsPresence.end( ) , i_sort );
-	
+
 	//Cor mais presente
-	Color MostPresentColor = ( Color ) ColorsPresence.front( );
-	Color LessPresentColor = InverseColor( MostPresentColor );
-	Color LastColor = history.front( );
-	
-	
-	int MostPresentStreaks = 0;
-	int LessPresentStreaks = 0;
-	
-	int PresentStreakSize = 0;
-	int NonPresentStreak = 0;
-	
-	bool HasPresentStreak = false;
-	bool HasLessStreak = false;
-	
-	//Vamos verificar se existe sequencias desta cor
-	for ( auto color : GameTransition.Colors ) {
-	
-		if ( color == LessPresentColor )
-			NonPresentStreak++;
-		else {
-	
-			if ( HasLessStreak ) {
-				LessPresentStreaks++;
-				HasLessStreak = false;
-			}
-	
-			NonPresentStreak = 0;
-		}
-	
-		if ( color == MostPresentColor )
-			PresentStreakSize++;
-		else {
-			if ( HasPresentStreak ) {
-				MostPresentStreaks++;
-				HasPresentStreak = false;
-			}
-	
-			PresentStreakSize = 0;
-		}
-	
-		//Achamos uma streak
-		if ( PresentStreakSize >= 2 )
-		{
-			HasPresentStreak = true;
-		}
-	
-		//Achamos uma streak
-		if ( NonPresentStreak >= 2 )
-		{
-			HasLessStreak = true;
-		}
-	}
-	
+	//Color MostPresentColor = ( Color ) ColorsPresence.front( );
+	//Color LessPresentColor = InverseColor( MostPresentColor );
+	//Color LastColor = history.front( );
+	//
+	//
+	//int MostPresentStreaks = 0;
+	//int LessPresentStreaks = 0;
+	//
+	//int PresentStreakSize = 0;
+	//int NonPresentStreak = 0;
+	//
+	//bool HasPresentStreak = false;
+	//bool HasLessStreak = false;
+	//
+	////Vamos verificar se existe sequencias desta cor
+	//for ( auto color : GameTransition.Colors ) {
+	//
+	//	if ( color == LessPresentColor )
+	//		NonPresentStreak++;
+	//	else {
+	//
+	//		if ( HasLessStreak ) {
+	//			LessPresentStreaks++;
+	//			HasLessStreak = false;
+	//		}
+	//
+	//		NonPresentStreak = 0;
+	//	}
+	//
+	//	if ( color == MostPresentColor )
+	//		PresentStreakSize++;
+	//	else {
+	//		if ( HasPresentStreak ) {
+	//			MostPresentStreaks++;
+	//			HasPresentStreak = false;
+	//		}
+	//
+	//		PresentStreakSize = 0;
+	//	}
+	//
+	//	//Achamos uma streak
+	//	if ( PresentStreakSize >= 2 )
+	//	{
+	//		HasPresentStreak = true;
+	//	}
+	//
+	//	//Achamos uma streak
+	//	if ( NonPresentStreak >= 2 )
+	//	{
+	//		HasLessStreak = true;
+	//	}
+	//}
+
 	//if ( LessPresentStreaks || MostPresentStreaks ) {
 	//
 	//	if ( LessPresentStreaks > MostPresentStreaks )
@@ -773,10 +753,43 @@ Prediction DoublePredictor::predictNext( ) {
 			next_color = c;
 		}
 	}
-	if ( max_certainty >= 0.55 ) {
+
+	//Vamos verificar a existencia de cores sequenciais
+	Streak streak = isStreak( );
+	if ( streak.StreakSize ) {
+		//We have a streak, let's see it
+		if ( streak.StreakSize >= 4 ) {
+			//We have a big streak, don't bet anything
+			// R, R, R, R -> ?
+			Final_Pred.color = Null;
+			Final_Pred.chance = 0.0f;
+			return Final_Pred;
+		}
+		else if ( streak.StreakSize >= 2 )
+		{
+			if ( max_certainty > 0.6 )
+			{
+				Final_Pred.color = next_color;
+				Final_Pred.chance = max_certainty;
+				return Final_Pred;
+			}
+			else {
+				//Small streak and low chance
+				//R, R -> B
+				Color inversecolor = InverseColor( streak.color );
+				if ( inversecolor != Null ) {
+					Final_Pred.color = inversecolor;
+					Final_Pred.chance = getCertainty( inversecolor );
+					return Final_Pred;
+				}
+			}
+		}
+	}
+	else {
 		Final_Pred.color = next_color;
 		Final_Pred.chance = max_certainty;
 	}
+
 
 	return Final_Pred;
 }

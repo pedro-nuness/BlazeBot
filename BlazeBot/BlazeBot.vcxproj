@@ -133,12 +133,10 @@
     <ClInclude Include="Colors\Colors.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Predictor\Predictor.h" />
-    <ClInclude Include="Utils.hpp" />
     <ClInclude Include="Utils\Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BetManagement\BetManagement.cpp" />
-    <ClCompile Include="codes.h" />
     <ClCompile Include="Colors\ColorManagement\ColorManagement.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Predictor\Predictor.cpp" />

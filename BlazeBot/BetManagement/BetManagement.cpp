@@ -70,20 +70,20 @@ std::string DownloadString( std::string URL ) {
 	return p;
 }
 
-BetManager::BetManager( const std::string & filename, DoublePredictor * PredPtr )
+BetManager::BetManager( const std::string & filename , DoublePredictor * PredPtr )
 {
 	this->filename = filename;
 	this->predictor = PredPtr;
 	ClearData( );
 }
 
-void BetManager::addColor( int color , bool write) {
+void BetManager::addColor( json play , bool write ) {
 	if ( write )
-		WriteData( filename , color );
+		WriteData( filename , play );
 
-	Color c = ( Color ) color;
+	Color c = (Color)play["color" ];
 
-	switch ( color ) {
+	switch ( c ) {
 	case Red:
 		predictor->addColor( Red );
 		reds++;
@@ -137,7 +137,7 @@ int BetManager::getSafeWrongs( ) const {
 	return this->SafeWrongs;
 }
 
-const std::vector<ColorManagement> & BetManager::getBets( ) const {
+const std::vector<Bet> & BetManager::getBets( ) const {
 	return this->bets;
 }
 
@@ -158,70 +158,169 @@ bool BetManager::OnGameMode( bool * set ) {
 }
 
 void BetManager::setupData( ) {
-	json last_setup;
+	ColorManagement LastColorSetup;
 
 	while ( true ) {
 
 		if ( OnGameMode( nullptr ) )
 			continue;
 
-		std::vector<json> colors = blazeAPI( );
+		std::vector<json> GameColors = blazeAPI( );
 
-		if ( colors.empty( ) )
+		if ( GameColors.empty( ) )
 			continue;
 
-		if ( last_setup.empty( ) ) {
-			
-			for ( int i = colors.size( ) - 1; i >= 0; i-- ) {
-				auto color = colors.at( i );
-				addColor( color[ "color" ].get<int>( ) , !Exists( filename ) );
+		if ( !LastColorSetup.IsSetupped( ) ) {
+
+			for ( int i = GameColors.size( ) - 1; i >= 0; i-- ) { //Inverse sequence in API
+				addColor( GameColors.at( i ), !Exists( filename ) );
 			}
-			last_setup = colors.front( );
+			LastColorSetup = GameColors.front( );
 		}
 
-		auto newest_color = colors.front( );
+		auto MostRecentPlay = ColorManagement(GameColors.front( ));
 
-		if ( newest_color[ "id" ] != last_setup[ "id" ] ) {
-			int color = newest_color[ "color" ].get<int>( );
+
+		if ( MostRecentPlay.GetID() != LastColorSetup.GetID() ) {
+		
 
 			this->LastPrediction = this->CurrentPrediction;
-			predictor->newest_color = ( Color ) color ;
+			predictor->LastColor = MostRecentPlay.GetColor( );
 
-			if ( predictor->newest_color == this->LastPrediction.GetColor() ) {
-				bets.push_back( ColorManagement( this->LastPrediction.GetColor( ) , true ) );
+			if ( predictor->LastColor == this->LastPrediction.GetColor( ) ) {
+
+				Bet bet_push;
+				bet_push = this->LastPrediction;
+				bet_push.SetCorrect( WON );
+
+				bets.push_back( bet_push );
+
+				if ( this->LastPrediction.DidBet( ) ) {
+					CurrentPlayer.IncreaseBalance( this->LastPrediction.GetBetAmount( ) );
+				}
+
 				Corrects++;
-
 				if ( this->LastPrediction.GetChance( ) * 100 > 50 )
 					SafeCorrects++;
 			}
-			else if(this->LastPrediction.GetColor() != Null && this->LastPrediction.GetChance()){
-				bets.push_back( ColorManagement( this->LastPrediction.GetColor( ) , false ) );
-				Wrongs++;
+			else if ( this->LastPrediction.GetColor( ) != Null && this->LastPrediction.GetChance( ) ) {
 
+				Bet bet_push;
+				bet_push = this->LastPrediction;
+				bet_push.SetCorrect( LOSE );
+
+				bets.push_back( bet_push );
+
+				if ( this->LastPrediction.DidBet( ) ) {
+					CurrentPlayer.DecreaseBalance( this->LastPrediction.GetBetAmount( ) );
+				}
+
+				Wrongs++;
 				if ( this->LastPrediction.GetChance( ) * 100 > 50 )
 					SafeWrongs++;
 			}
 
-			addColor( color );
+			addColor(GameColors.front() );
 		}
 
-		last_setup = newest_color;
+		LastColorSetup = MostRecentPlay;
 
 		Sleep( 2000 );
 	}
 }
 
-int ConsecutiveLoses( ) {
-
-}
 
 
-void BetManager::PredictBets( ) {
+Bet BetManager::PredictBets( Color c , double chance , float balance ) {
 
 
+	Bet NextBet;
+	NextBet = Bet( c , chance , PREDICTION , MATH ); //Default Allocator
+
+	if ( !CurrentPlayer.IsSetupped( ) )
+		CurrentPlayer = Player( balance ); //Settup our balance to play the game
+
+	auto CurrentBalance = CurrentPlayer.GetBalance( );
+	auto Profit = CurrentPlayer.GetProfit( );
+	bool Betted = false;
+
+	float CurBet = 0;
+
+	static bool WonLastBet = false;
+
+	if ( bets.empty( ) || c == Null )
+	{
+		NextBet.SetMethod( MATH );
+	}
+	else {
+
+		auto & LastBet = bets.at( bets.size( ) - 1 );
+
+		//Martingalle
+
+		//if ( LastBet.DidBet( ) ) { //We did a bet last round
+
+		if ( LastBet.GetBetResult( ) == LOSE ) //We lose the LastBet
+		{
+			if ( LastBet.DidBet( ) ) {
+				CurBet = ( LastBet.GetBetAmount( ) * 2 ); // 2x bet
+				//Martingalle
+			}
+			else
+				CurBet = balance * 0.02; // 2% of balance
+			NextBet.SetMethod( MARTINGALE );
+		}
+		else if ( LastBet.GetBetResult( ) == WON )
+		{
+			if ( LastBet.DidBet( ) ) {
+
+				if ( ( LastBet.GetBetAmount( ) / 2 ) >= balance * 0.02 )
+				{
+					CurBet = LastBet.GetBetAmount( ) / 2; // 0.5x bet
+					NextBet.SetMethod( FIBONACCI );
+				}
+				else {
+					CurBet = LastBet.GetBetAmount( ); // 0.5x bet
+					NextBet.SetMethod( FIBONACCI );
+				}
+			}
+			else {
+				CurBet = balance * 0.02; // 2% of balance
+			}
+		}
+
+		NextBet.DoBet( CurBet , CurrentBalance );
+		Betted = true;
+	}
+
+	std::cout << "Current Balance: R$" << CurrentBalance << "\n";
+	std::cout << "Initial investment: R$" << CurrentPlayer.GetInitialMoney() << "\n";
+	std::cout << "Profit: R$" << Profit << "\n";
+
+	if ( Betted )
+	{
+
+		std::cout << "It's a bet!\n";
+		std::cout << "CurrentBet: R$" << CurBet;
+		std::cout << " ( ";
+		switch ( NextBet.GetMethod( ) )
+		{
+		case MARTINGALE:
+			std::cout << "MARTINGALE";
+			break;
+		case FIBONACCI:
+			std::cout << "FIBONACCI";
+			break;
+		default:
+			std::cout << "?";
+			break;
+		}
+		std::cout << " )\n ";
+
+	}
 
 
-
+	return NextBet;
 }
 
 void BetManager::ClearData( ) {
@@ -231,8 +330,9 @@ void BetManager::ClearData( ) {
 	this->whites = 0;
 }
 
-void BetManager::SetCurrentPrediction( Color col, double chance ) {
-	this->CurrentPrediction = Bet( col , chance );
+void BetManager::SetCurrentPrediction( Bet  bet )
+{
+	this->CurrentPrediction = bet;
 }
 
 
@@ -250,8 +350,6 @@ Color BetManager::nextBet( Color prediction , float predictionChance , double * 
 	double blue_prob = blue_chance / total_chance * ( 100 - predictionChance ) / 100;
 	double white_prob = white_chance / total_chance * ( 100 - predictionChance ) / 100;
 	double prediction_prob = predictionChance / 100.0;
-
-
 
 }
 
