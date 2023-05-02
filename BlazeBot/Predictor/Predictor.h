@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <cmath>
 
-#include "..\Colors\Colors.h"
+#include "..\Colors\ColorManagement\ColorManagement.h"
 
 namespace std {
     template <>
@@ -33,6 +33,15 @@ namespace std {
     };
 }
 
+enum PREDICTOR_METHOD {
+    IA,
+    FOUND_PATTERN,
+    STREAK,
+    CERTAINTY,
+    SEQUENCE,
+    NONE
+};
+
 class Transition {
    
 public:
@@ -43,7 +52,11 @@ public:
 class Prediction {
 public:
     Color color;
+    bool inverse;
+    int inversepos;
     float chance;
+    PREDICTOR_METHOD method;
+    bool PossibleWhite;
 };
 
 class Streak {
@@ -53,9 +66,11 @@ public:
 };
 
 
+
+
 class DoublePredictor {
 private:
-    std::vector<Color> history;
+    std::vector<ColorManagement> history;
     std::unordered_map<Color , int> counts;
     std::unordered_map<std::pair<Color , Color> , int> transitions;
     std::map<std::pair<Color , std::pair<Color , Color>> , double> transitions_three;
@@ -65,7 +80,7 @@ private:
     double red_chance = 0.46;
     double blue_chance = 0.46;
     double white_chance = 0.06;
-
+    
 public:
     int Beats;
     int Misses;
@@ -76,12 +91,12 @@ public:
 
     double get_next_color_probability( Color color );
 
-    void AddHistory( Color col );
-    std::vector<Color> GetHistory();
-
+    void AddHistory( json col );
+    std::vector<ColorManagement> GetHistory();
+    std::vector<int> SeparatedPrediction;
     void clearResults( );
     int Total( );
-    void addColor( Color c );
+    void addColor( ColorManagement c );
     std::vector<double> crossValidate( int k = 5 );
     double getCertainty( Color c);
     double getCertaintyRecoded( Color c );
@@ -89,7 +104,11 @@ public:
     double GetTransitionWeight( std::vector<Transition> Transitions , int position );
     Color getNextColorWithPreference( Color next_color );
     Prediction predictNext( );
-    Streak isStreak( );
+    Color PredictSequence( );
+    Color SearchPattern( int window_size );
+    Color IAPrediction( );
+    Color CertaintyPrediction( );
+    Streak isStreak( int startpos = 0 );
     std::pair<int , double> getStreakProbability( Color c, double bayes);
     void updateTransitionsThree( );
     Transition GetGameTransition( );

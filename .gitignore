@@ -28,3 +28,10 @@ BlazeBot/x64/Release/codes.h_9A73B8D30868D581.ifc.dt.d.json
 BlazeBot/x64/Release/codes.h.module.json
 BlazeBot/Scan.txt
 BlazeBot/Results.txt
+*.dll
+*.lib
+*.txt
+*.idb
+*.exp
+*.exe
+*.exe
