@@ -14,6 +14,7 @@ extern std::string filename;
 extern std::string Folder;
 extern std::string JSName;
 extern std::string HistoryName;
+extern std::string ImportName;
 
 bool Exists( const std::string & name ) {
 	return std::filesystem::exists( name );
@@ -186,6 +187,31 @@ bool BetManager::OnGameMode( bool * set ) {
 
 extern void save_cfg( bool read );
 
+void ImportToBot( BetManager * bet ) {
+
+	json js;
+
+	js[ "balance" ] = bet->CurrentPlayer.GetBalance( );
+	js[ "initialbalance" ] = bet->CurrentPlayer.GetInitialMoney( );
+	js[ "server_seed" ] = bet->APIHistory.back( ).GetServerID( );
+	js[ "color" ] = bet->GetCurrentPrediction( ).GetColor( );
+	js[ "betted" ] = bet->GetCurrentPrediction( ).DidBet( );
+	js[ "coverwhite" ] = bet->GetCurrentPrediction( ).GetPrediction( ).PossibleWhite;
+	js[ "betvalue" ] = bet->GetCurrentPrediction( ).GetBetAmount( );
+	js[ "whitebetvalue" ] = bet->GetCurrentPrediction( ).GetWhiteBet( );
+	js[ "history" ] = bet->GetPredictor( )->GetGameTransition( 13 ).Colors;
+
+	std::ofstream arquivo( Folder + ImportName , std::ios::trunc );
+
+	if ( arquivo.is_open( ) ) {
+		arquivo << js;
+	}
+	else {
+		std::cout << "Erro ao abrir o arquivo." << std::endl;
+	}
+}
+
+
 void BetManager::ManageBets( ) {
 
 	int last_history_size = -1;
@@ -212,11 +238,13 @@ void BetManager::ManageBets( ) {
 				SetCurrentPrediction( NextBet );
 
 				save_cfg( false );
-				last_history_size = hist.size( );
-
+			
 				std::cout << "Corrects: " << Corrects << std::endl;
 				std::cout << "Wrongs: " << Wrongs << std::endl;
 
+				ImportToBot( this );
+
+				last_history_size = hist.size( );
 			}
 
 			Sleep( 500 );
@@ -341,7 +369,7 @@ fs.writeFile("history.json", history.join("\n"), function (err) {
 
 	json curjs;
 
-	for ( int i = content.size( ) - 1; i > - 1; i-- )
+	for ( int i = content.size( ) - 1; i > -1; i-- )
 	{
 		auto c = content.at( i );
 
@@ -375,7 +403,7 @@ void BetManager::setupData( ) {
 			continue;
 
 		if ( !LastColorSetup.IsSetupped( ) ) {
-			
+
 			LastColorSetup = GameColors.front( );
 			StartupNode( LastColorSetup.GetServerID( ) , 15000 , this );
 
@@ -388,7 +416,7 @@ void BetManager::setupData( ) {
 
 				bool Found = false;
 
-				for ( int i = DelayedColors.size() - 1; i > -1; i-- )
+				for ( int i = DelayedColors.size( ) - 1; i > -1; i-- )
 				{
 					auto JsonColor = DelayedColors[ i ];
 
@@ -650,10 +678,12 @@ Bet BetManager::PredictBets( Prediction predict ) {
 	if ( predict.PossibleWhite )
 		WhiteBet = MinimumBet / 2;
 
-	if ( bets.empty( ) ) {
+	if ( bets.empty( ) && ( predict.color != Null || predict.PossibleWhite ) ) {
 
 		NextBet.SetMethod( MINIMUM );
-		CurrentBet = MinimumBet;
+
+		if ( predict.color != Null )
+			CurrentBet = MinimumBet;
 
 		NextBet.DoBet( CurrentBet , WhiteBet , CurrentBalance );
 		Betted = true;
@@ -663,6 +693,7 @@ Bet BetManager::PredictBets( Prediction predict ) {
 		if ( predict.color == Null )
 		{
 			NextBet.SetMethod( MINIMUM );
+			CurrentBet = 0.0f;
 		}
 		else {
 

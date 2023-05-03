@@ -243,6 +243,11 @@ public:
 	Bet PredictBets( Prediction predict );
 
 
+	DoublePredictor * GetPredictor( )
+	{
+		return this->predictor;
+	}
+
 	void SetRedPosition( POINT pos ) {
 		this->RedPos = pos;
 	}

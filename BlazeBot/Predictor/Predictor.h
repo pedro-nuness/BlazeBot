@@ -111,7 +111,7 @@ public:
     Streak isStreak( int startpos = 0 );
     std::pair<int , double> getStreakProbability( Color c, double bayes);
     void updateTransitionsThree( );
-    Transition GetGameTransition( );
+    Transition GetGameTransition( int size =18 );
 };
 
 #endif // DOUBLEPREDICTOR_H

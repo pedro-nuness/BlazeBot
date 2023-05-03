@@ -28,8 +28,10 @@
 
 std::string filename = "Scan.json";
 std::string Folder = "C:\\Blaze\\";
+std::string IAPATH = "IA.pt";
 std::string JSName = "js.js";
 std::string HistoryName = "history.json";
+std::string ImportName = "import.json";
 bool Stop = false;
 
 DoublePredictor predictor;
