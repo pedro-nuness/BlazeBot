@@ -32,6 +32,7 @@ std::string IAPATH = "IA.pt";
 std::string JSName = "js.js";
 std::string HistoryName = "history.json";
 std::string ImportName = "import.json";
+std::string IAModel = "IA.pt";
 bool Stop = false;
 
 DoublePredictor predictor;
@@ -191,6 +192,21 @@ void save_cfg( bool read ) {
 		g_globals.Betting.WaitIfLosing = cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ];
 		g_globals.Betting.WonBetMultiplier = cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ];
 
+		g_globals.Betting.TargetParcentage = cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ];
+		g_globals.Betting.StopPercentage = cfg[ "Config" ][ "Betting" ][ "StopPercentage" ];
+
+		g_globals.Betting.ResetCountIfWin = cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ];
+		g_globals.Betting.WaitAgainIfLose = cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ];
+
+		g_globals.Betting.PreventDownPeaks = cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ];
+		g_globals.Betting.MinimumPeakDistance = cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ];
+		g_globals.Betting.PreventIfAbove = cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ];
+		g_globals.Betting.WaitingTime = cfg[ "Config" ][ "Betting" ][ "WaitingTime" ];
+
+		g_globals.Betting.ProtectProfit = cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ];
+		g_globals.Betting.ProtectAfter = cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ];
+		g_globals.Betting.ProtectPercentage = cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ];
+
 	}
 	else {
 		SavePoint( "RedPos" , cfg , betManager.GetRedPosition( ) );
@@ -227,6 +243,20 @@ void save_cfg( bool read ) {
 		cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ] = g_globals.Betting.WaitIfLosing;
 		cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ] = g_globals.Betting.WonBetMultiplier;
 
+		cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ] = g_globals.Betting.TargetParcentage;
+		cfg[ "Config" ][ "Betting" ][ "StopPercentage" ] = g_globals.Betting.StopPercentage;
+
+		cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ] = g_globals.Betting.ResetCountIfWin;
+		cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ] = g_globals.Betting.WaitAgainIfLose;
+
+		cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ] = g_globals.Betting.PreventDownPeaks;
+		cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ] = g_globals.Betting.MinimumPeakDistance;
+		cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ] = g_globals.Betting.PreventIfAbove;
+		cfg[ "Config" ][ "Betting" ][ "WaitingTime" ] = g_globals.Betting.WaitingTime;
+
+		cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ] = g_globals.Betting.ProtectProfit;
+		cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ] = g_globals.Betting.ProtectAfter;
+		cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ] = g_globals.Betting.ProtectPercentage;
 
 		std::ofstream  arquivo( DIR );// abre o arquivo para leitura
 		if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
@@ -388,7 +418,7 @@ int main( int , char ** )
 			ImDrawList * draw_list = ImGui::GetBackgroundDrawList( ); // Obtem uma referência ao ImDrawList de fundo
 			ImVec2 window_size = ImGui::GetIO( ).DisplaySize; // Obtem o tamanho da janela
 			//draw_list->AddRectFilled( ImVec2( 0 , 0 ) , window_size , ImColor( 10 , 10 , 10 ) ); // Desenha um retângulo preenchido com a cor cinza escuro
-
+			
 			draw_list->AddImage( Background , ImVec2( 0 , 0 ) , ImVec2( window_size ) );
 
 
@@ -418,7 +448,7 @@ int main( int , char ** )
 
 
 			if ( g_globals.Windows.AccurracyWindow ) {
-				ImGui::SetNextWindowSize( ImVec2( 250 , 220 ) );
+				ImGui::SetNextWindowSize( ImVec2( 300 , 300 ) );
 				ImGui::Begin( "Acurracy" , NULL , ImGuiWindowFlags_NoResize );
 				ImGui::SetNextItemWidth( ImGui::GetFontSize( ) * -12 );
 
@@ -452,6 +482,9 @@ int main( int , char ** )
 						case SEQUENCE:
 							Method += " ( SEQUENCE )";
 							break;
+						case GENERAL:
+							Method += " ( GENERAL )";
+							break;
 						default:
 							Method += " ( NONE )";
 							break;
@@ -479,10 +512,21 @@ int main( int , char ** )
 							}
 						}
 
+						int HitsPercentage = BeatsSeparated.GetHitsPercentage( );
+						int TotalBets = BeatsSeparated.GetTotal( );
 
-						std::string Hits = "Result" + Method + ": ( " + std::to_string( BeatsSeparated.beats ) + "/" + std::to_string( BeatsSeparated.misses ) + " ) - " + Col;
+						std::string Hits = "Result" + Method + ": ( " + std::to_string( HitsPercentage ) + " ) - " + Col;
+						std::string Total = "Total" + Method + ": " + std::to_string( TotalBets );
+						std::string Roll = "Roll" + Method + ": " + std::to_string( BeatsSeparated.GetRollLosesAmount( ) );
+						std::string MaxRoll = "Max Roll" + Method + ": " + std::to_string( BeatsSeparated.GetMaximumRollLoseAmount( ) );
+						std::string MedRoll = "Med Roll" + Method + ": " + std::to_string( BeatsSeparated.GetMediumRollLoseAmount( ) );
 
 						ImGui::Text( Hits.c_str( ) );
+						ImGui::Text( Total.c_str( ) );
+						ImGui::Text( Roll.c_str( ) );
+						ImGui::Text( MaxRoll.c_str( ) );
+						ImGui::Text( MedRoll.c_str( ) );
+						ImGui::NewLine( );
 					}
 				}
 
@@ -533,6 +577,9 @@ int main( int , char ** )
 				case SEQUENCE:
 					PredColor += " ( SEQUENCE )";
 					break;
+				case GENERAL:
+					PredColor += " ( GENERAL )";
+					break;
 				default:
 					PredColor += " ( NONE )";
 					break;
@@ -547,7 +594,7 @@ int main( int , char ** )
 				if ( current_prediction.DidBet( ) ) {
 
 					ImGui::TextColored( ImVec4( 1.0f , 0.f , 0.f , 1.0f ) , "It's a bet!" );
-					ImGui::Text( Str( "Bet Value: " , std::to_string( current_prediction.GetBetAmount( )  ) ).c_str( ) );
+					ImGui::Text( Str( "Bet Value: " , std::to_string( current_prediction.GetBetAmount( ) ) ).c_str( ) );
 				}
 				if ( current_prediction.GetPrediction( ).PossibleWhite ) {
 
@@ -655,8 +702,15 @@ int main( int , char ** )
 					ImGui::SliderInt( "Multiply after - lose" , &g_globals.Betting.MultiplyBetAfterXLose , 1 , 10 );
 					ImGui::SliderInt( "Max multiplier times - lose" , &g_globals.Betting.MaxMultiplierTimesOnLose , 1 , 10 );
 					ImGui::SliderFloat( "Lose multiplier" , &g_globals.Betting.LoseBetMultiplier , 0 , 200 );
-
 					ImGui::Checkbox( "Reset count on win" , &g_globals.Betting.ResetNextBetMultiplierOnWin );
+
+					ImGui::Checkbox( "Protect Profit" , &g_globals.Betting.ProtectProfit );
+					if ( g_globals.Betting.ProtectProfit )
+					{
+						ImGui::SliderFloat( "Protect if profit" , &g_globals.Betting.ProtectAfter , 1 , 100 );
+						ImGui::SliderFloat( "Protect percentage" , &g_globals.Betting.ProtectPercentage , 1 , 100 );
+					}
+
 					ImGui::NewLine( );
 				}
 
@@ -678,6 +732,8 @@ int main( int , char ** )
 				{
 					ImGui::SliderInt( "Wait after" , &g_globals.Betting.WaitAfterXLose , 1 , 10 );
 					ImGui::SliderInt( "Wait amount" , &g_globals.Betting.WaitAmount , 1 , 10 );
+					ImGui::Checkbox( "Reset Stand If win" , &g_globals.Betting.ResetCountIfWin );
+					ImGui::Checkbox( "Wait again if lose" , &g_globals.Betting.WaitAgainIfLose );
 					ImGui::NewLine( );
 				}
 
@@ -686,6 +742,15 @@ int main( int , char ** )
 
 				ImGui::SliderFloat( "Max Bet percentage" , &g_globals.Betting.MaxBetPercentage , 0 , 100 );
 				ImGui::SliderFloat( "Min Bet percentage" , &g_globals.Betting.MinBetPercentage , 0 , 20 );
+
+				ImGui::Checkbox( "Prevent from down peaks" , &g_globals.Betting.PreventDownPeaks );
+				if ( g_globals.Betting.PreventDownPeaks )
+				{
+					ImGui::SliderInt( "Peek Distance" , &g_globals.Betting.MinimumPeakDistance , 1 , 50 );
+					ImGui::SliderFloat( "Prevent if peek is (%)" , &g_globals.Betting.PreventIfAbove , 0 , 100 );
+					ImGui::SliderInt( "Waiting Time (minutes)" , &g_globals.Betting.WaitingTime , 1 , 120 );
+				}
+
 
 				ImGui::End( );
 			}

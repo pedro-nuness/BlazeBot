@@ -39,6 +39,7 @@ enum PREDICTOR_METHOD {
     STREAK,
     CERTAINTY,
     SEQUENCE,
+    GENERAL,
     NONE
 };
 

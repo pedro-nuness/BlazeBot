@@ -16,7 +16,7 @@ enum METHODS
 {
 	MARTINGALE ,
 	FIBONACCI ,
-	MINIMUM,
+	MINIMUM ,
 	STANDBY
 };
 
@@ -24,7 +24,7 @@ enum BETRESULT
 {
 	PREDICTION ,
 	WON ,
-	LOSE 
+	LOSE
 };
 
 
@@ -53,7 +53,7 @@ public:
 		this->Method = method;
 	}
 
-	void DoBet( float value , float white_bet,  float currency ) {
+	void DoBet( float value , float white_bet , float currency ) {
 		if ( value ) {
 			if ( value <= currency )
 				this->BetValue = value;
@@ -62,7 +62,7 @@ public:
 		}
 		else
 			this->BetValue = 0.0f;
-		
+
 		if ( white_bet ) {
 			if ( white_bet <= currency )
 				this->WhiteBet = white_bet;
@@ -127,27 +127,40 @@ public:
 class Player {
 	float StartMoney = -1;
 	float CurrentMoney = -1;
+	float PeakMoney = -1;
 public:
 	Player( float money ) {
 		this->CurrentMoney = money;
 		this->StartMoney = money;
+		this->PeakMoney = money;
 	} //Settup money
 
 	float GetProfit( ) {
 		return CurrentMoney - StartMoney;
 	}
 
+	float GetPeakBalance( ) { return this->PeakMoney; }
 	float GetBalance( ) { return this->CurrentMoney; }
 	float GetInitialMoney( ) { return this->StartMoney; }
-	void IncreaseBalance( float value ) { this->CurrentMoney = this->CurrentMoney + value; }
-	void DecreaseBalance( float value ) { this->CurrentMoney = this->CurrentMoney - value; }
+	void IncreaseBalance( float value ) { 
+		this->CurrentMoney = this->CurrentMoney + value;
+		if ( this->CurrentMoney > PeakMoney )
+			PeakMoney = this->CurrentMoney;
+	}
+	void DecreaseBalance( float value ) { 
+		this->CurrentMoney = this->CurrentMoney - value; 
+	
+	}
 
 	void SetBalance( float balance ) {
 		this->CurrentMoney = balance;
+		if ( this->CurrentMoney > PeakMoney )
+			PeakMoney = this->CurrentMoney;
 	}
 
 	void Reset( ) {
 		this->CurrentMoney = this->StartMoney;
+		this->PeakMoney = CurrentMoney;
 	}
 
 	bool IsSetupped( ) {
@@ -176,7 +189,7 @@ public:
 		this->Bets = nullptr;
 	}
 
-	BetPredictor( DoublePredictor * predictor, std::vector<Bet> * bets )
+	BetPredictor( DoublePredictor * predictor , std::vector<Bet> * bets )
 	{
 		this->Predictor = predictor;
 		this->Bets = bets;
@@ -188,11 +201,111 @@ public:
 };
 
 
+class BetManager;
+
 class Beats {
 
+
+	int Hits = 0;
+	int Misses = 0;
+	int MaxRollLoseAmount = 0;
+	int CurrentRollLose;
+	bool WasWinning = false;
+	bool WasLoosing = false;
+	std::vector<int> RollLoses;
+	std::vector<int> Results;
+	BetManager * BetPtr;
+	int Method;
+
+
 public:
-	int beats;
-	int misses;
+
+	Beats( BetManager * bet_ptr , int Method ) {
+		this->Hits = 0;
+		this->Misses = 0;
+		this->MaxRollLoseAmount = 0;
+		this->CurrentRollLose = 0;
+		this->WasLoosing = false;
+		this->WasWinning = false;
+		RollLoses.clear( );
+		this->Method = Method;
+		this->BetPtr = bet_ptr;
+	}
+
+	void PrintBetLose( int prediction );
+
+
+	void SetupBeat( int ColorPrediction , int TrueColor );
+	
+
+	std::vector<int> GetRollLoses( ) {
+		return this->RollLoses;
+	}
+
+	int GetRollLosesAmount( ) {
+		return RollLoses.size( );
+	}
+
+	int GetMaximumRollLoseAmount( ) {
+		return MaxRollLoseAmount;
+	}
+
+	int GetMediumRollLoseAmount( ) {
+
+		float Sum = 0.f;
+
+		if ( !RollLoses.empty( ) ) {
+
+			for ( auto roll : RollLoses )
+			{
+				Sum += roll;
+			}
+
+			Sum /= RollLoses.size( );
+		}
+
+		return int( Sum );
+	}
+
+	int GetHits( ) {
+		return this->Hits;
+	}
+
+	int GetMisses( ) {
+		return this->Misses;
+	}
+
+	int GetHitsPercentage( ) {
+		float Percentage = 0.0;
+
+		if ( ( Hits + Misses ) > 0 ) {
+			float Hit = Hits;
+			float Miss = Misses;
+			float Total = Hit + Miss;
+			Percentage = ( Hit / Total ) * 100;
+		}
+
+		return int( Percentage );
+	}
+
+	int GetTotal( ) {
+		return Hits + Misses;
+	}
+
+
+	int GetMissesPercentage( ) {
+
+		float Percentage = 0.0;
+
+		if ( ( Hits + Misses ) > 0 ) {
+			float Hit = Hits;
+			float Miss = Misses;
+			float Total = Hit + Miss;
+			Percentage = ( Miss / Total ) * 100;
+		}
+
+		return int( Percentage );
+	}
 
 };
 
@@ -226,13 +339,14 @@ private:
 	POINT InputPos = { 0, 0 };
 	POINT StartBetPos = { 0,0 };
 	BetPredictor BetPredicton;
-	
+
 public:
 	bool StartBets = false;
 	BetManager( const std::string & filename , DoublePredictor * predictor );
 
 	std::chrono::high_resolution_clock::time_point StartingBetTime;
 	std::chrono::high_resolution_clock::time_point EndingBetTime;
+	std::chrono::high_resolution_clock::time_point StartWaitingTime;
 
 	Player CurrentPlayer = Player( -1 );
 	std::vector<float> BalanceHistory;

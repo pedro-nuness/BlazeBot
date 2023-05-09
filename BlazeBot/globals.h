@@ -41,7 +41,19 @@ struct Globals{
 		int WaitAfterXLose = 3;
 		int WaitAmount = 5;
 		bool ResetCountIfWin = false;
-		bool LoseAgainIfLose = false;
+		bool WaitAgainIfLose = false;
+
+		bool PreventDownPeaks = false;
+		int MinimumPeakDistance = 10;
+		float PreventIfAbove = 20;
+		int WaitingTime = 30;
+
+
+		bool ProtectProfit = false;
+		float ProtectAfter = 30;
+		float ProtectPercentage = 40;
+
+
 	}Betting;
 
 	struct {

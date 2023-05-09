@@ -41,6 +41,124 @@ void WriteData( std::string file , T data )
 	arquivo.close( );
 }
 
+void Beats::PrintBetLose( int prediction ) {
+
+	std::vector < Color > CurrentGame;
+
+	for ( int i = BetPtr->APIHistory.size( ) - 18; i < BetPtr->APIHistory.size( ); i++ )
+	{
+		auto c = BetPtr->APIHistory[ i ].GetColor( );
+		CurrentGame.emplace_back( c );
+	}
+
+	std::string data;
+
+	for ( int i = 0; i < CurrentGame.size( ) - 2; i++ )
+	{
+		auto c = CurrentGame[ i ];
+		switch ( c )
+		{
+		case Red:
+			data += "R";
+			break;
+		case Blue:
+			data += "B";
+			break;
+		case White:
+			data += "W";
+			break;
+		default:
+			data += "0";
+			break;
+		}
+
+		data += " ";
+	}
+
+	data += "-> ";
+	int latestcol = CurrentGame[ CurrentGame.size( ) - 1 ];
+
+	switch ( latestcol )
+	{
+	case Red:
+		data += "R";
+		break;
+	case Blue:
+		data += "B";
+		break;
+	case White:
+		data += "W";
+		break;
+	default:
+		data += "0";
+		break;
+	}
+
+	data += " Prediction: ";
+
+	switch ( prediction )
+	{
+	case Red:
+		data += "R";
+		break;
+	case Blue:
+		data += "B";
+		break;
+	case White:
+		data += "W";
+		break;
+	default:
+		data += "0";
+		break;
+	}
+
+
+	std::string dir = "C:\\Blaze\\Loses";
+
+	switch ( Method )
+	{
+	case FOUND_PATTERN:
+		dir += " ( PATTERN )";
+		break;
+	case CERTAINTY:
+		dir += " ( MATH )";
+		break;
+	case IA:
+		dir += " ( I.A )";
+		break;
+	case STREAK:
+		dir += " ( STREAK )";
+		break;
+	case SEQUENCE:
+		dir += " ( SEQUENCE )";
+		break;
+	case GENERAL:
+		dir += " ( GENERAL )";
+		break;
+	default:
+		dir += " ( NONE )";
+		break;
+	}
+
+
+	dir += ".txt";
+
+	ofstream arquivo( dir , ios::app );
+
+	// Verificar se o arquivo foi aberto corretamente
+	if ( !arquivo.is_open( ) ) {
+		cout << "Erro ao abrir o arquivo" << endl;
+		return;
+	}
+
+	// Adicionar texto ao arquivo
+	arquivo << data << "\n";
+
+	// Fechar o arquivo
+	arquivo.close( );
+
+}
+
 std::string replaceAllString( std::string subject , const std::string & search ,
 	const std::string & replace ) {
 	size_t pos = 0;
@@ -200,6 +318,7 @@ void ImportToBot( BetManager * bet ) {
 	js[ "betvalue" ] = bet->GetCurrentPrediction( ).GetBetAmount( );
 	js[ "whitebetvalue" ] = bet->GetCurrentPrediction( ).GetWhiteBet( );
 	js[ "history" ] = bet->GetPredictor( )->GetGameTransition( 13 ).Colors;
+	js[ "accuracy" ] = bet->SeparatedBeats[ GENERAL ].GetHitsPercentage( );
 
 	std::ofstream arquivo( Folder + ImportName , std::ios::trunc );
 
@@ -238,7 +357,7 @@ void BetManager::ManageBets( ) {
 				SetCurrentPrediction( NextBet );
 
 				save_cfg( false );
-			
+
 				std::cout << "Corrects: " << Corrects << std::endl;
 				std::cout << "Wrongs: " << Wrongs << std::endl;
 
@@ -390,7 +509,7 @@ void BetManager::setupData( ) {
 
 	//Settup bets vec
 	for ( int i = 0; i < NONE; i++ )
-		SeparatedBeats.emplace_back( Beats( 0 , 0 ) );
+		SeparatedBeats.emplace_back( Beats( this , i ) );
 
 	while ( true ) {
 
@@ -405,7 +524,7 @@ void BetManager::setupData( ) {
 		if ( !LastColorSetup.IsSetupped( ) ) {
 
 			LastColorSetup = GameColors.front( );
-			StartupNode( LastColorSetup.GetServerID( ) , 15000 , this );
+			StartupNode( LastColorSetup.GetServerID( ) , 20000 , this );
 
 			std::vector<json> DelayedColors = blazeAPI( );
 			GameColors = DelayedColors;
@@ -448,10 +567,6 @@ void BetManager::setupData( ) {
 			this->LastPrediction = this->CurrentPrediction;
 			predictor->LastColor = MostRecentPlay.GetColor( );
 
-			Bet pBetPush;
-			pBetPush = this->LastPrediction;
-			pBetPush.SetCorrect( STANDBY );
-			bets_display.push_back( pBetPush );
 
 			if ( !predictor->SeparatedPrediction.empty( ) ) {
 
@@ -459,39 +574,60 @@ void BetManager::setupData( ) {
 				{
 					auto prediction = predictor->SeparatedPrediction[ i ];
 
-					if ( prediction != Null ) {
-						if ( prediction == MostRecentPlay.GetColor( ) )
-							SeparatedBeats[ i ].beats++;
-						else
-							SeparatedBeats[ i ].misses++;
-					}
+					SeparatedBeats[ i ].SetupBeat( prediction , MostRecentPlay.GetColor( ) );
 				}
 			}
 
 			Bet bet_push;
-			bet_push = this->LastPrediction;
+			bet_push = this->CurrentPrediction;
+			bet_push.SetCorrect( PREDICTION );
 
-			if ( this->LastPrediction.GetPrediction( ).PossibleWhite )
+			if ( this->CurrentPrediction.GetColor( ) != Null && this->CurrentPrediction.GetChance( ) )
 			{
-				if ( MostRecentPlay.GetColor( ) == White )
-					CurrentPlayer.IncreaseBalance( this->LastPrediction.GetWhiteBet( ) * 14 );
-				else
-					CurrentPlayer.DecreaseBalance( this->LastPrediction.GetWhiteBet( ) );
-			}
-
-			if ( this->LastPrediction.GetColor( ) != Null && this->LastPrediction.GetChance( ) )
-			{
-				if ( MostRecentPlay.GetColor( ) == this->LastPrediction.GetColor( ) ) {
-
+				if ( MostRecentPlay.GetColor( ) == this->CurrentPrediction.GetColor( ) )
 					bet_push.SetCorrect( WON );
+				else
+					bet_push.SetCorrect( LOSE );
+
+
+				if ( this->CurrentPrediction.GetPrediction( ).PossibleWhite && this->CurrentPrediction.GetWhiteBet( ) )
+				{
+					if ( MostRecentPlay.GetColor( ) == White ) {
+						CurrentPlayer.IncreaseBalance( this->CurrentPrediction.GetWhiteBet( ) * 14 );
+						bet_push.SetCorrect( WON );
+					}
+					else
+						CurrentPlayer.DecreaseBalance( this->CurrentPrediction.GetWhiteBet( ) );
+				}
+
+				if ( MostRecentPlay.GetColor( ) == this->CurrentPrediction.GetColor( ) ) {
 
 					Corrects++;
-					if ( this->LastPrediction.GetChance( ) * 100 > 50 )
+					if ( this->CurrentPrediction.GetChance( ) * 100 > 50 )
 						SafeCorrects++;
 
-					if ( this->LastPrediction.DidBet( ) ) {
+					int losestreak = 0;
 
-						CurrentPlayer.IncreaseBalance( this->LastPrediction.GetBetAmount( ) );
+					for ( int i = bets.size( ) - 1; i > 0; i-- )
+					{
+						auto bet = bets[ i ];
+
+						if ( bet.GetBetResult( ) == LOSE )
+						{
+							losestreak++;
+						}
+						else
+							break;
+					}
+
+					if ( losestreak && losestreak <= 2 ) // We just lost 2, small lose amount
+					{
+						Wrongs -= losestreak;
+					}
+
+					if ( this->CurrentPrediction.DidBet( ) ) {
+
+						CurrentPlayer.IncreaseBalance( this->CurrentPrediction.GetBetAmount( ) );
 
 						BalanceHistory.emplace_back( CurrentPlayer.GetBalance( ) );
 						bets.push_back( bet_push );
@@ -499,22 +635,21 @@ void BetManager::setupData( ) {
 				}
 				else {
 
-					bet_push.SetCorrect( LOSE );
-
 					Wrongs++;
-					if ( this->LastPrediction.GetChance( ) * 100 > 50 )
+					if ( this->CurrentPrediction.GetChance( ) * 100 > 50 )
 						SafeWrongs++;
 
-					if ( this->LastPrediction.DidBet( ) ) {
+					if ( this->CurrentPrediction.DidBet( ) ) {
 
-						CurrentPlayer.DecreaseBalance( this->LastPrediction.GetBetAmount( ) );
+						CurrentPlayer.DecreaseBalance( this->CurrentPrediction.GetBetAmount( ) );
 						BalanceHistory.emplace_back( CurrentPlayer.GetBalance( ) );
 						bets.push_back( bet_push );
 					}
 				}
-
-				bets_display.push_back( bet_push );
 			}
+
+
+			bets_display.push_back( bet_push );
 
 			addColor( GameColors.front( ) );
 		}
@@ -596,10 +731,10 @@ bool BetManager::NeedToWait( )
 			if ( WaitAmount > 0 )
 			{
 				WaitAmount--;
-				return false;
+				return true;
 			}
 			else {
-				return true;
+				return false;
 			}
 		}
 		else {
@@ -637,7 +772,50 @@ bool BetManager::NeedToWait( )
 }
 
 
+void Beats::SetupBeat( int ColorPrediction , int TrueColor )
+{
+	if ( ColorPrediction != Null ) {
+		if ( ColorPrediction == TrueColor ) {
+			WasWinning = true;
+			Hits++;
 
+			Results.emplace_back( WON );
+
+			if ( WasLoosing ) {
+				RollLoses.emplace_back( CurrentRollLose );
+
+				if ( CurrentRollLose && CurrentRollLose <= g_globals.Betting.MaxMultiplierTimesOnLose )
+				{
+					Misses -= CurrentRollLose;
+				}
+
+				CurrentRollLose = 0;
+				WasLoosing = false;
+			}
+		}
+		else {
+			WasWinning = false;
+
+			Results.emplace_back( LOSE );
+
+			PrintBetLose( ColorPrediction );
+
+			if ( !WasWinning )
+			{
+				WasLoosing = true;
+
+				CurrentRollLose++;
+
+
+				if ( CurrentRollLose > MaxRollLoseAmount )
+				{
+					MaxRollLoseAmount = CurrentRollLose;
+				}
+			}
+			Misses++;
+		}
+	}
+}
 
 Bet BetManager::PredictBets( Prediction predict ) {
 
@@ -650,20 +828,78 @@ Bet BetManager::PredictBets( Prediction predict ) {
 
 	float CurrentBalance = CurrentPlayer.GetBalance( );
 	float InitialBalance = CurrentPlayer.GetInitialMoney( );
+	float PeakBalance = CurrentPlayer.GetPeakBalance( );
 	float Profit = CurrentPlayer.GetProfit( );
 	float MinimumPercentage = g_globals.Betting.MinBetPercentage / 100;
 	float CurrentBet = 0.f;
 	float WhiteBet = 0.f;
-	bool Betted = false;
+	float MaximumBet = ( InitialBalance * ( g_globals.Betting.MaxBetPercentage / 100.f ) );
+	float MinimumBet = clamp_value( InitialBalance * ( g_globals.Betting.MinBetPercentage / 100.f ) , 2.f , MaximumBet );
+
 	static int MultiplierLoseCount = 0;
 	static int MultiplierWinCount = 0;
 	static int LoseCount = 0;
+	int TargetPercentage = int( InitialBalance * ( g_globals.Betting.TargetParcentage / 100 ) );
+	int StopPercentage = int( InitialBalance * ( ( g_globals.Betting.StopPercentage ) / 100 ) );
 
-	int TargetPercentage = int( CurrentPlayer.GetInitialMoney( ) * ( g_globals.Betting.TargetParcentage / 100 ) );
-	int StopPercentage = int( CurrentPlayer.GetInitialMoney( ) * ( ( g_globals.Betting.StopPercentage ) / 100 ) );
+	static bool Waited = false;
 
-	float MaximumBet = ( CurrentPlayer.GetInitialMoney( ) * ( g_globals.Betting.MaxBetPercentage / 100.f ) );
-	float MinimumBet = clamp_value( CurrentPlayer.GetInitialMoney( ) * ( g_globals.Betting.MinBetPercentage / 100.f ) , 2.f , MaximumBet );
+
+	if ( BalanceHistory.size( ) > 10 ) {
+		int BalanceSize = BalanceHistory.size( );
+		int DifferenceFromLastBalance = BalanceHistory[ BalanceSize - 2 ] - BalanceHistory[ BalanceSize - 1 ];
+		float Tolerance = InitialBalance * ( g_globals.Betting.PreventIfAbove / 100 );
+
+		if ( DifferenceFromLastBalance < 0 && fabs( DifferenceFromLastBalance >= Tolerance ) )
+		{
+			//We just Recovered from a down peak;
+			//Let's check if there's others down peaks near this one
+
+			std::vector<int> PeakDownPositions;
+
+			for ( int i = BalanceHistory.size( ) - 1; i > 1; i-- )
+			{
+				if ( PeakDownPositions.size( ) >= 2 )
+					break;
+
+				int Difference = BalanceHistory[ i - 1 ] - BalanceHistory[ i ];
+				if ( ( fabs( Difference ) > Tolerance ) && Difference < 0 )
+				{
+					PeakDownPositions.emplace_back( i - 1 );
+				}
+			}
+
+			if ( PeakDownPositions.size( ) >= 2 )
+			{
+				int DistanceBetweenPeaks = fabs( PeakDownPositions[ 0 ] - PeakDownPositions[ 1 ] );
+
+				//They are near?
+				if ( DistanceBetweenPeaks <= g_globals.Betting.MinimumPeakDistance )
+				{
+					if ( StartWaitingTime == ( std::chrono::high_resolution_clock::time_point::min ) ( ) ) {
+						StartWaitingTime = std::chrono::high_resolution_clock::now( );
+						//Let's wait
+					}
+					else if ( !Waited ) {
+						//We're already waiting
+						float ElapsedTime = std::chrono::duration_cast< std::chrono::minutes >( std::chrono::high_resolution_clock::now( ) - StartWaitingTime ).count( );
+
+						if ( ElapsedTime >= g_globals.Betting.WaitingTime )
+						{
+							StartWaitingTime = ( std::chrono::high_resolution_clock::time_point::min ) ( );
+							Waited = true;
+						}
+						else {
+							NextBet.SetMethod( STANDBY );
+							return NextBet;
+						}
+					}
+
+				}
+			}
+		}
+
+	}
 
 	if ( StartingBetTime == ( std::chrono::high_resolution_clock::time_point::min ) ( ) ) {
 		StartingBetTime = std::chrono::high_resolution_clock::now( ); // Salva o tempo atual
@@ -675,18 +911,17 @@ Bet BetManager::PredictBets( Prediction predict ) {
 		return NextBet;
 	}
 
-	if ( predict.PossibleWhite )
-		WhiteBet = MinimumBet / 2;
-
-	if ( bets.empty( ) && ( predict.color != Null || predict.PossibleWhite ) ) {
+	if ( bets.empty( ) && ( predict.color != Null ) ) {
 
 		NextBet.SetMethod( MINIMUM );
 
 		if ( predict.color != Null )
 			CurrentBet = MinimumBet;
 
+		if ( predict.PossibleWhite )
+			WhiteBet = MinimumBet / 2;
+
 		NextBet.DoBet( CurrentBet , WhiteBet , CurrentBalance );
-		Betted = true;
 	}
 	else {
 
@@ -695,57 +930,15 @@ Bet BetManager::PredictBets( Prediction predict ) {
 			NextBet.SetMethod( MINIMUM );
 			CurrentBet = 0.0f;
 		}
-		else {
+		else
+		{
+			if ( predict.PossibleWhite )
+				WhiteBet = MinimumBet / 2;
 
-			int ConsecutiveLoses = 0;
-
-			for ( int i = bets.size( ) - 1; i > 0; i-- )
+			if ( NeedToWait( ) )
 			{
-				auto Bet = bets.at( i );
-
-				if ( i == bets.size( ) - 1 )
-				{
-					if ( Bet.GetBetResult( ) != WON )
-						break;
-				}
-				else {
-
-					if ( Bet.GetBetResult( ) == LOSE )
-					{
-						ConsecutiveLoses++;
-					}
-					else {
-						break;
-					}
-				}
-			}
-
-			if ( ConsecutiveLoses >= 3 )
-			{
-				auto CurrentGame = predictor->GetGameTransition( );
-				std::string Output;
-
-				for ( auto Col : CurrentGame.Colors )
-				{
-					switch ( Col )
-					{
-					case Red:
-						Output += "Red ";
-						break;
-					case Blue:
-						Output += "Black ";
-						break;
-					case White:
-						Output += "White ";
-						break;
-					default:
-						break;
-					}
-				}
-
-				Output += "( " + std::to_string( ConsecutiveLoses ) + " Loses )\n";
-
-				WriteData( Folder + "Loses.txt" , Output );
+				NextBet.SetMethod( STANDBY );
+				return NextBet;
 			}
 
 			CurrentBet = MinimumBet / 2;
@@ -755,13 +948,14 @@ Bet BetManager::PredictBets( Prediction predict ) {
 			float WinMultipliedValue = ( LastBet.GetBetAmount( ) * ( g_globals.Betting.WonBetMultiplier / 100 ) );
 			float LoseMultipliedValue = ( LastBet.GetBetAmount( ) * ( g_globals.Betting.LoseBetMultiplier / 100 ) );
 
+
 			if ( LastBet.GetBetResult( ) == LOSE ) //We lose the LastBet
 			{
 				if ( WaitController.Wait )
 				{
 					LoseCount++;
-					if ( g_globals.Betting.LoseAgainIfLose ) {
-						if ( LoseCount >= 2 )
+					if ( g_globals.Betting.WaitAgainIfLose ) {
+						if ( LoseCount >= 3 )
 						{
 							//Wait again if we lose once
 							WaitController.WaitStartPos = predictor->GetHistory( ).size( ) - 1;
@@ -800,15 +994,30 @@ Bet BetManager::PredictBets( Prediction predict ) {
 						else {
 							break;
 						}
-
 					}
 
 					if ( LoseStreak >= g_globals.Betting.MultiplyBetAfterXLose )
 					{
+						MultiplierLoseCount++;
+
 						if ( MultiplierLoseCount <= g_globals.Betting.MaxMultiplierTimesOnLose )
 						{
-							CurrentBet = clamp_value( LoseMultipliedValue , MinimumBet , MaximumBet );
-							MultiplierLoseCount++;
+							CurrentBet = clamp_value( LoseMultipliedValue , MinimumBet , MaximumBet );	
+
+							if ( g_globals.Betting.ProtectProfit )
+							{
+								float ProtectPercentage = InitialBalance * ( g_globals.Betting.ProtectAfter / 100 );
+
+								if ( Profit > ProtectPercentage )
+								{
+									float MaximumMultiplier = Profit * ( g_globals.Betting.ProtectPercentage / 100 );
+
+									if ( LoseMultipliedValue > MaximumMultiplier )
+									{
+										CurrentBet = MinimumBet;
+									}
+								}
+							}						
 						}
 					}
 				}
@@ -855,10 +1064,11 @@ Bet BetManager::PredictBets( Prediction predict ) {
 
 					if ( WinStreak >= g_globals.Betting.MultiplyBetAfterXWin )
 					{
+						MultiplierWinCount++;
+
 						if ( MultiplierWinCount <= g_globals.Betting.MaxMultiplierTimesOnWin )
 						{
-							CurrentBet = clamp_value( WinMultipliedValue , MinimumBet , MaximumBet );
-							MultiplierWinCount++;
+							CurrentBet = clamp_value( WinMultipliedValue , MinimumBet , MaximumBet );						
 						}
 					}
 				}
@@ -868,16 +1078,10 @@ Bet BetManager::PredictBets( Prediction predict ) {
 
 			if ( !CurrentBet || CurrentBet < 2 )
 				CurrentBet = MinimumBet;
-
-			if ( NeedToWait( ) )
-			{
-				NextBet.SetMethod( STANDBY );
-				return NextBet;
-			}
 		}
 
+		Waited = false;
 		NextBet.DoBet( CurrentBet , WhiteBet , CurrentBalance );
-		Betted = true;
 	}
 
 	return NextBet;
