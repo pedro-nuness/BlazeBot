@@ -22,9 +22,9 @@ enum METHODS
 
 enum BETRESULT
 {
-	PREDICTION ,
 	WON ,
-	LOSE
+	LOSE,
+	PREDICTION 
 };
 
 
@@ -129,6 +129,19 @@ class Player {
 	float CurrentMoney = -1;
 	float PeakMoney = -1;
 public:
+	bool IsPeakSettuped = false;
+
+	void SettupPeak( std::vector<float> historybalance )
+	{
+		for ( auto money : historybalance )
+		{
+			if ( money > PeakMoney )
+				PeakMoney = money;
+		}
+
+		IsPeakSettuped = true;
+	}
+
 	Player( float money ) {
 		this->CurrentMoney = money;
 		this->StartMoney = money;
@@ -142,14 +155,14 @@ public:
 	float GetPeakBalance( ) { return this->PeakMoney; }
 	float GetBalance( ) { return this->CurrentMoney; }
 	float GetInitialMoney( ) { return this->StartMoney; }
-	void IncreaseBalance( float value ) { 
+	void IncreaseBalance( float value ) {
 		this->CurrentMoney = this->CurrentMoney + value;
 		if ( this->CurrentMoney > PeakMoney )
 			PeakMoney = this->CurrentMoney;
 	}
-	void DecreaseBalance( float value ) { 
-		this->CurrentMoney = this->CurrentMoney - value; 
-	
+	void DecreaseBalance( float value ) {
+		this->CurrentMoney = this->CurrentMoney - value;
+
 	}
 
 	void SetBalance( float balance ) {
@@ -236,7 +249,7 @@ public:
 
 
 	void SetupBeat( int ColorPrediction , int TrueColor );
-	
+
 
 	std::vector<int> GetRollLoses( ) {
 		return this->RollLoses;

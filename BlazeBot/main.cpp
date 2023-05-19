@@ -20,8 +20,10 @@
 
 
 #include "Utils/Bytes.h"
-#include "globals.h"
+#include "Utils/Config/Config.h"
 
+extern bool LoadCfg( std::string name );
+extern bool SaveCFG( std::string name );
 
 
 #pragma warning(disable:4996)
@@ -39,8 +41,6 @@ DoublePredictor predictor;
 
 BetManager betManager( filename , &predictor );
 Utils usefull;
-
-Globals g_globals;
 
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
@@ -136,137 +136,150 @@ void save_cfg( bool read ) {
 
 	if ( read ) {
 
-		std::fstream arquivo( DIR );// abre o arquivo para leitura
-		if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
+		//std::fstream arquivo( DIR );// abre o arquivo para leitura
+		//if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
+		//
+		//	cfg = json::parse( arquivo );
+		//	arquivo.close( ); // fecha o arquivo
+		//}
+		//else {
+		//	std::cout << "Não foi possível abrir o arquivo" << std::endl;
+		//	return;
+		//}
+		//
+		//betManager.SetRedPosition( GetPoint( "RedPos" , cfg ) );
+		//betManager.SetBlackPosition( GetPoint( "BlackPos" , cfg ) );
+		//betManager.SetWhitePosition( GetPoint( "WhitePos" , cfg ) );
+		//betManager.SetInputPosition( GetPoint( "InputPos" , cfg ) );
+		//betManager.SetStartPosition( GetPoint( "StartPos" , cfg ) );
+		//betManager.CurrentPlayer = Player( cfg[ "InitialBalance" ] );
+		//betManager.CurrentPlayer.SetBalance( cfg[ "Balance" ] );
+		//betManager.BalanceHistory.emplace_back( betManager.CurrentPlayer.GetBalance( ) );
+		//if ( cfg[ "BalanceGraph" ].is_array( ) )
+		//{
+		//	std::vector<float> balance_g;
+		//
+		//	for ( auto & value : cfg[ "BalanceGraph" ] )
+		//	{
+		//		balance_g.emplace_back( value );
+		//	}
+		//
+		//	betManager.BalanceHistory = balance_g;
+		//}
+		//
+		//g_globals.Prediction.IgnoreStreakAfter = cfg[ "Config" ][ "Prediction" ][ "IgnoreStreakAfter" ];
+		//g_globals.Prediction.StreakBettingSpacing = cfg[ "Config" ][ "Prediction" ][ "StreakBettingSpacing" ];
+		//g_globals.Prediction.InvertIfMissing = cfg[ "Config" ][ "Prediction" ][ "InvertIfMissing" ];
+		//g_globals.Prediction.InvertIfMissingAbove = cfg[ "Config" ][ "Prediction" ][ "InvertIfMissingAbove" ];
+		//g_globals.Prediction.MaximumPercentage = cfg[ "Config" ][ "Prediction" ][ "MaximumPercentage" ];
+		//g_globals.Prediction.MinimumPercentage = cfg[ "Config" ][ "Prediction" ][ "MinimumPercentage" ];
+		//g_globals.Prediction.MinPatterSize = cfg[ "Config" ][ "Prediction" ][ "MinPatterSize" ];
+		//
+		//g_globals.Betting.AutoBet = cfg[ "Config" ][ "Betting" ][ "AutoBet" ];
+		//g_globals.Betting.LoseBetMultiplier = cfg[ "Config" ][ "Betting" ][ "LoseBetMultiplier" ];
+		//g_globals.Betting.MaxBetPercentage = cfg[ "Config" ][ "Betting" ][ "MaxBetPercentage" ];
+		//g_globals.Betting.MaxMultiplierTimesOnLose = cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnLose" ];
+		//g_globals.Betting.MaxMultiplierTimesOnWin = cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnWin" ];
+		//g_globals.Betting.MinBetPercentage = cfg[ "Config" ][ "Betting" ][ "MinBetPercentage" ];
+		//g_globals.Betting.MultiplyBetAfterXLose = cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXLose" ];
+		//g_globals.Betting.MultiplyBetAfterXWin = cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXWin" ];
+		//g_globals.Betting.MultiplyBetOnLose = cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnLose" ];
+		//g_globals.Betting.MultiplyBetOnWin = cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnWin" ];
+		//g_globals.Betting.ResetNextBetMultiplierOnLose = cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnLose" ];
+		//g_globals.Betting.ResetNextBetMultiplierOnWin = cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnWin" ];
+		//g_globals.Betting.WaitAfterXLose = cfg[ "Config" ][ "Betting" ][ "WaitAfterXLose" ];
+		//g_globals.Betting.WaitAmount = cfg[ "Config" ][ "Betting" ][ "WaitAmount" ];
+		//g_globals.Betting.WaitIfLosing = cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ];
+		//g_globals.Betting.WonBetMultiplier = cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ];
+		//
+		//g_globals.Betting.TargetParcentage = cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ];
+		//g_globals.Betting.StopPercentage = cfg[ "Config" ][ "Betting" ][ "StopPercentage" ];
+		//
+		//g_globals.Betting.ResetCountIfWin = cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ];
+		//g_globals.Betting.WaitAgainIfLose = cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ];
+		//
+		//g_globals.Betting.PreventDownPeaks = cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ];
+		//g_globals.Betting.MinimumPeakDistance = cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ];
+		//g_globals.Betting.PreventIfAbove = cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ];
+		//g_globals.Betting.WaitingTime = cfg[ "Config" ][ "Betting" ][ "WaitingTime" ];
+		//
+		//g_globals.Betting.ProtectProfit = cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ];
+		//g_globals.Betting.ProtectAfter = cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ];
+		//g_globals.Betting.ProtectPercentage = cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ];
 
-			cfg = json::parse( arquivo );
-			arquivo.close( ); // fecha o arquivo
-		}
-		else {
-			std::cout << "Não foi possível abrir o arquivo" << std::endl;
-			return;
-		}
+		LoadCfg( "config.json" );
 
-		betManager.SetRedPosition( GetPoint( "RedPos" , cfg ) );
-		betManager.SetBlackPosition( GetPoint( "BlackPos" , cfg ) );
-		betManager.SetWhitePosition( GetPoint( "WhitePos" , cfg ) );
-		betManager.SetInputPosition( GetPoint( "InputPos" , cfg ) );
-		betManager.SetStartPosition( GetPoint( "StartPos" , cfg ) );
-		betManager.CurrentPlayer = Player( cfg[ "InitialBalance" ] );
-		betManager.CurrentPlayer.SetBalance( cfg[ "Balance" ] );
-		betManager.BalanceHistory.emplace_back( betManager.CurrentPlayer.GetBalance( ) );
-		if ( cfg[ "BalanceGraph" ].is_array( ) )
+		if ( !betManager.CurrentPlayer.IsSetupped( ) )
 		{
-			std::vector<float> balance_g;
-
-			for ( auto & value : cfg[ "BalanceGraph" ] )
-			{
-				balance_g.emplace_back( value );
-			}
-
-			betManager.BalanceHistory = balance_g;
+			betManager.CurrentPlayer = Player( cfg::Get( ).Game.InitialBalance );
+			betManager.CurrentPlayer.SetBalance( cfg::Get( ).Game.CurrentBalance );
+			betManager.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
 		}
-
-		g_globals.Prediction.IgnoreStreakAfter = cfg[ "Config" ][ "Prediction" ][ "IgnoreStreakAfter" ];
-		g_globals.Prediction.StreakBettingSpacing = cfg[ "Config" ][ "Prediction" ][ "StreakBettingSpacing" ];
-		g_globals.Prediction.InvertIfMissing = cfg[ "Config" ][ "Prediction" ][ "InvertIfMissing" ];
-		g_globals.Prediction.InvertIfMissingAbove = cfg[ "Config" ][ "Prediction" ][ "InvertIfMissingAbove" ];
-		g_globals.Prediction.MaximumPercentage = cfg[ "Config" ][ "Prediction" ][ "MaximumPercentage" ];
-		g_globals.Prediction.MinimumPercentage = cfg[ "Config" ][ "Prediction" ][ "MinimumPercentage" ];
-		g_globals.Prediction.MinPatterSize = cfg[ "Config" ][ "Prediction" ][ "MinPatterSize" ];
-
-		g_globals.Betting.AutoBet = cfg[ "Config" ][ "Betting" ][ "AutoBet" ];
-		g_globals.Betting.LoseBetMultiplier = cfg[ "Config" ][ "Betting" ][ "LoseBetMultiplier" ];
-		g_globals.Betting.MaxBetPercentage = cfg[ "Config" ][ "Betting" ][ "MaxBetPercentage" ];
-		g_globals.Betting.MaxMultiplierTimesOnLose = cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnLose" ];
-		g_globals.Betting.MaxMultiplierTimesOnWin = cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnWin" ];
-		g_globals.Betting.MinBetPercentage = cfg[ "Config" ][ "Betting" ][ "MinBetPercentage" ];
-		g_globals.Betting.MultiplyBetAfterXLose = cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXLose" ];
-		g_globals.Betting.MultiplyBetAfterXWin = cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXWin" ];
-		g_globals.Betting.MultiplyBetOnLose = cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnLose" ];
-		g_globals.Betting.MultiplyBetOnWin = cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnWin" ];
-		g_globals.Betting.ResetNextBetMultiplierOnLose = cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnLose" ];
-		g_globals.Betting.ResetNextBetMultiplierOnWin = cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnWin" ];
-		g_globals.Betting.WaitAfterXLose = cfg[ "Config" ][ "Betting" ][ "WaitAfterXLose" ];
-		g_globals.Betting.WaitAmount = cfg[ "Config" ][ "Betting" ][ "WaitAmount" ];
-		g_globals.Betting.WaitIfLosing = cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ];
-		g_globals.Betting.WonBetMultiplier = cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ];
-
-		g_globals.Betting.TargetParcentage = cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ];
-		g_globals.Betting.StopPercentage = cfg[ "Config" ][ "Betting" ][ "StopPercentage" ];
-
-		g_globals.Betting.ResetCountIfWin = cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ];
-		g_globals.Betting.WaitAgainIfLose = cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ];
-
-		g_globals.Betting.PreventDownPeaks = cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ];
-		g_globals.Betting.MinimumPeakDistance = cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ];
-		g_globals.Betting.PreventIfAbove = cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ];
-		g_globals.Betting.WaitingTime = cfg[ "Config" ][ "Betting" ][ "WaitingTime" ];
-
-		g_globals.Betting.ProtectProfit = cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ];
-		g_globals.Betting.ProtectAfter = cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ];
-		g_globals.Betting.ProtectPercentage = cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ];
 
 	}
 	else {
-		SavePoint( "RedPos" , cfg , betManager.GetRedPosition( ) );
-		SavePoint( "BlackPos" , cfg , betManager.GetBlackPosition( ) );
-		SavePoint( "WhitePos" , cfg , betManager.GetWhitePosition( ) );
-		SavePoint( "InputPos" , cfg , betManager.GetInputPosition( ) );
-		SavePoint( "StartPos" , cfg , betManager.GetStartPosition( ) );
-		cfg[ "Balance" ] = betManager.CurrentPlayer.GetBalance( );
-		cfg[ "BalanceGraph" ] = betManager.BalanceHistory;
-		cfg[ "InitialBalance" ] = betManager.CurrentPlayer.GetInitialMoney( );
 
-		cfg[ "Config" ][ "Prediction" ][ "IgnoreStreakAfter" ] = g_globals.Prediction.IgnoreStreakAfter;
-		cfg[ "Config" ][ "Prediction" ][ "StreakBettingSpacing" ] = g_globals.Prediction.StreakBettingSpacing;
-		cfg[ "Config" ][ "Prediction" ][ "InvertIfMissing" ] = g_globals.Prediction.InvertIfMissing;
-		cfg[ "Config" ][ "Prediction" ][ "InvertIfMissingAbove" ] = g_globals.Prediction.InvertIfMissingAbove;
-		cfg[ "Config" ][ "Prediction" ][ "MaximumPercentage" ] = g_globals.Prediction.MaximumPercentage;
-		cfg[ "Config" ][ "Prediction" ][ "MinimumPercentage" ] = g_globals.Prediction.MinimumPercentage;
-		cfg[ "Config" ][ "Prediction" ][ "MinPatterSize" ] = g_globals.Prediction.MinPatterSize;
+		SaveCFG( "config.json" );
 
-		cfg[ "Config" ][ "Betting" ][ "AutoBet" ] = g_globals.Betting.AutoBet;
-		cfg[ "Config" ][ "Betting" ][ "LoseBetMultiplier" ] = g_globals.Betting.LoseBetMultiplier;
-		cfg[ "Config" ][ "Betting" ][ "MaxBetPercentage" ] = g_globals.Betting.MaxBetPercentage;
-		cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnLose" ] = g_globals.Betting.MaxMultiplierTimesOnLose;
-		cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnWin" ] = g_globals.Betting.MaxMultiplierTimesOnWin;
-		cfg[ "Config" ][ "Betting" ][ "MinBetPercentage" ] = g_globals.Betting.MinBetPercentage;
-		cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXLose" ] = g_globals.Betting.MultiplyBetAfterXLose;
-		cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXWin" ] = g_globals.Betting.MultiplyBetAfterXWin;
-		cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnLose" ] = g_globals.Betting.MultiplyBetOnLose;
-		cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnWin" ] = g_globals.Betting.MultiplyBetOnWin;
-		cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnLose" ] = g_globals.Betting.ResetNextBetMultiplierOnLose;
-		cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnWin" ] = g_globals.Betting.ResetNextBetMultiplierOnWin;
-		cfg[ "Config" ][ "Betting" ][ "WaitAfterXLose" ] = g_globals.Betting.WaitAfterXLose;
-		cfg[ "Config" ][ "Betting" ][ "WaitAmount" ] = g_globals.Betting.WaitAmount;
-		cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ] = g_globals.Betting.WaitIfLosing;
-		cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ] = g_globals.Betting.WonBetMultiplier;
 
-		cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ] = g_globals.Betting.TargetParcentage;
-		cfg[ "Config" ][ "Betting" ][ "StopPercentage" ] = g_globals.Betting.StopPercentage;
-
-		cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ] = g_globals.Betting.ResetCountIfWin;
-		cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ] = g_globals.Betting.WaitAgainIfLose;
-
-		cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ] = g_globals.Betting.PreventDownPeaks;
-		cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ] = g_globals.Betting.MinimumPeakDistance;
-		cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ] = g_globals.Betting.PreventIfAbove;
-		cfg[ "Config" ][ "Betting" ][ "WaitingTime" ] = g_globals.Betting.WaitingTime;
-
-		cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ] = g_globals.Betting.ProtectProfit;
-		cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ] = g_globals.Betting.ProtectAfter;
-		cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ] = g_globals.Betting.ProtectPercentage;
-
-		std::ofstream  arquivo( DIR );// abre o arquivo para leitura
-		if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
-
-			arquivo << cfg;
-			arquivo.close( ); // fecha o arquivo
-		}
-		else {
-			std::cout << "Não foi possível abrir o arquivo" << std::endl;
-		}
+		//SavePoint( "RedPos" , cfg , betManager.GetRedPosition( ) );
+		//SavePoint( "BlackPos" , cfg , betManager.GetBlackPosition( ) );
+		//SavePoint( "WhitePos" , cfg , betManager.GetWhitePosition( ) );
+		//SavePoint( "InputPos" , cfg , betManager.GetInputPosition( ) );
+		//SavePoint( "StartPos" , cfg , betManager.GetStartPosition( ) );
+		//cfg[ "Balance" ] = betManager.CurrentPlayer.GetBalance( );
+		//cfg[ "BalanceGraph" ] = betManager.BalanceHistory;
+		//cfg[ "InitialBalance" ] = betManager.CurrentPlayer.GetInitialMoney( );
+		//
+		//cfg[ "Config" ][ "Prediction" ][ "IgnoreStreakAfter" ] = g_globals.Prediction.IgnoreStreakAfter;
+		//cfg[ "Config" ][ "Prediction" ][ "StreakBettingSpacing" ] = g_globals.Prediction.StreakBettingSpacing;
+		//cfg[ "Config" ][ "Prediction" ][ "InvertIfMissing" ] = g_globals.Prediction.InvertIfMissing;
+		//cfg[ "Config" ][ "Prediction" ][ "InvertIfMissingAbove" ] = g_globals.Prediction.InvertIfMissingAbove;
+		//cfg[ "Config" ][ "Prediction" ][ "MaximumPercentage" ] = g_globals.Prediction.MaximumPercentage;
+		//cfg[ "Config" ][ "Prediction" ][ "MinimumPercentage" ] = g_globals.Prediction.MinimumPercentage;
+		//cfg[ "Config" ][ "Prediction" ][ "MinPatterSize" ] = g_globals.Prediction.MinPatterSize;
+		//
+		//cfg[ "Config" ][ "Betting" ][ "AutoBet" ] = g_globals.Betting.AutoBet;
+		//cfg[ "Config" ][ "Betting" ][ "LoseBetMultiplier" ] = g_globals.Betting.LoseBetMultiplier;
+		//cfg[ "Config" ][ "Betting" ][ "MaxBetPercentage" ] = g_globals.Betting.MaxBetPercentage;
+		//cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnLose" ] = g_globals.Betting.MaxMultiplierTimesOnLose;
+		//cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnWin" ] = g_globals.Betting.MaxMultiplierTimesOnWin;
+		//cfg[ "Config" ][ "Betting" ][ "MinBetPercentage" ] = g_globals.Betting.MinBetPercentage;
+		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXLose" ] = g_globals.Betting.MultiplyBetAfterXLose;
+		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXWin" ] = g_globals.Betting.MultiplyBetAfterXWin;
+		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnLose" ] = g_globals.Betting.MultiplyBetOnLose;
+		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnWin" ] = g_globals.Betting.MultiplyBetOnWin;
+		//cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnLose" ] = g_globals.Betting.ResetNextBetMultiplierOnLose;
+		//cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnWin" ] = g_globals.Betting.ResetNextBetMultiplierOnWin;
+		//cfg[ "Config" ][ "Betting" ][ "WaitAfterXLose" ] = g_globals.Betting.WaitAfterXLose;
+		//cfg[ "Config" ][ "Betting" ][ "WaitAmount" ] = g_globals.Betting.WaitAmount;
+		//cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ] = g_globals.Betting.WaitIfLosing;
+		//cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ] = g_globals.Betting.WonBetMultiplier;
+		//
+		//cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ] = g_globals.Betting.TargetParcentage;
+		//cfg[ "Config" ][ "Betting" ][ "StopPercentage" ] = g_globals.Betting.StopPercentage;
+		//
+		//cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ] = g_globals.Betting.ResetCountIfWin;
+		//cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ] = g_globals.Betting.WaitAgainIfLose;
+		//
+		//cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ] = g_globals.Betting.PreventDownPeaks;
+		//cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ] = g_globals.Betting.MinimumPeakDistance;
+		//cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ] = g_globals.Betting.PreventIfAbove;
+		//cfg[ "Config" ][ "Betting" ][ "WaitingTime" ] = g_globals.Betting.WaitingTime;
+		//
+		//cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ] = g_globals.Betting.ProtectProfit;
+		//cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ] = g_globals.Betting.ProtectAfter;
+		//cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ] = g_globals.Betting.ProtectPercentage;
+		//
+		//std::ofstream  arquivo( DIR );// abre o arquivo para leitura
+		//if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
+		//
+		//	arquivo << cfg;
+		//	arquivo.close( ); // fecha o arquivo
+		//}
+		//else {
+		//	std::cout << "Não foi possível abrir o arquivo" << std::endl;
+		//}
 	}
 }
 
@@ -418,7 +431,7 @@ int main( int , char ** )
 			ImDrawList * draw_list = ImGui::GetBackgroundDrawList( ); // Obtem uma referência ao ImDrawList de fundo
 			ImVec2 window_size = ImGui::GetIO( ).DisplaySize; // Obtem o tamanho da janela
 			//draw_list->AddRectFilled( ImVec2( 0 , 0 ) , window_size , ImColor( 10 , 10 , 10 ) ); // Desenha um retângulo preenchido com a cor cinza escuro
-			
+
 			draw_list->AddImage( Background , ImVec2( 0 , 0 ) , ImVec2( window_size ) );
 
 
@@ -434,20 +447,20 @@ int main( int , char ** )
 			//
 			//ImGui::Checkbox( "Saw Window" , &show_saw_window );
 
-			ImGui::Checkbox( "Information Window" , &g_globals.Windows.InformationWindow );
+			ImGui::Checkbox( "Information Window" , &cfg::Get( ).Windows.InformationWindow );
 
-			ImGui::Checkbox( "Game History" , &g_globals.Windows.HistoryWindow );
+			ImGui::Checkbox( "Game History" , &cfg::Get( ).Windows.HistoryWindow );
 
-			ImGui::Checkbox( "Accurracy Window" , &g_globals.Windows.AccurracyWindow );
+			ImGui::Checkbox( "Accurracy Window" , &cfg::Get( ).Windows.AccurracyWindow );
 
-			ImGui::Checkbox( "Balance graph" , &g_globals.Windows.BalanceWindow );
+			ImGui::Checkbox( "Balance graph" , &cfg::Get( ).Windows.BalanceWindow );
 
-			ImGui::Checkbox( "Betting Options" , &g_globals.Windows.ShowBetsWindow );
+			ImGui::Checkbox( "Betting Options" , &cfg::Get( ).Windows.ShowBetsWindow );
 
-			ImGui::Checkbox( "Predicting Options" , &g_globals.Windows.ShowPredictionWindow );
+			ImGui::Checkbox( "Predicting Options" , &cfg::Get( ).Windows.ShowPredictionWindow );
 
 
-			if ( g_globals.Windows.AccurracyWindow ) {
+			if ( cfg::Get( ).Windows.AccurracyWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 300 , 300 ) );
 				ImGui::Begin( "Acurracy" , NULL , ImGuiWindowFlags_NoResize );
 				ImGui::SetNextItemWidth( ImGui::GetFontSize( ) * -12 );
@@ -535,7 +548,7 @@ int main( int , char ** )
 			}
 
 
-			if ( g_globals.Windows.InformationWindow ) {
+			if ( cfg::Get( ).Windows.InformationWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 250 , 220 ) );
 				ImGui::Begin( "Informations" , NULL , ImGuiWindowFlags_NoResize );
 				ImGui::SetNextItemWidth( ImGui::GetFontSize( ) * -12 );
@@ -609,7 +622,7 @@ int main( int , char ** )
 				ImGui::End( );
 			}
 
-			if ( g_globals.Windows.HistoryWindow ) {
+			if ( cfg::Get( ).Windows.HistoryWindow ) {
 
 				ImGui::SetNextWindowSize( ImVec2( 450 , 73 ) );
 				ImGui::Begin( "Game History" , NULL , ImGuiWindowFlags_NoResize );
@@ -676,7 +689,7 @@ int main( int , char ** )
 				ImGui::End( );
 			}
 
-			if ( g_globals.Windows.BalanceWindow ) {
+			if ( cfg::Get( ).Windows.BalanceWindow ) {
 				// iterate over the array using the pointer
 
 				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
@@ -692,80 +705,144 @@ int main( int , char ** )
 				ImGui::End( );
 			}
 
-			if ( g_globals.Windows.ShowBetsWindow ) {
+			if ( cfg::Get( ).Windows.ShowBetsWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 450 , 280 ) );
 				ImGui::Begin( "Betting Options" , NULL , ImGuiWindowFlags_NoResize );
 
-				ImGui::Checkbox( "Multiply Bet on lose" , &g_globals.Betting.MultiplyBetOnLose );
-				if ( g_globals.Betting.MultiplyBetOnLose )
-				{
-					ImGui::SliderInt( "Multiply after - lose" , &g_globals.Betting.MultiplyBetAfterXLose , 1 , 10 );
-					ImGui::SliderInt( "Max multiplier times - lose" , &g_globals.Betting.MaxMultiplierTimesOnLose , 1 , 10 );
-					ImGui::SliderFloat( "Lose multiplier" , &g_globals.Betting.LoseBetMultiplier , 0 , 200 );
-					ImGui::Checkbox( "Reset count on win" , &g_globals.Betting.ResetNextBetMultiplierOnWin );
 
-					ImGui::Checkbox( "Protect Profit" , &g_globals.Betting.ProtectProfit );
-					if ( g_globals.Betting.ProtectProfit )
+				for ( int i = 0; i < 2; i++ )
+				{
+					std::string type;
+
+					switch ( i )
 					{
-						ImGui::SliderFloat( "Protect if profit" , &g_globals.Betting.ProtectAfter , 1 , 100 );
-						ImGui::SliderFloat( "Protect percentage" , &g_globals.Betting.ProtectPercentage , 1 , 100 );
+					case WON:
+						type = " - win";
+						break;
+					case LOSE:
+						type = " - lose";
+						break;
+					default:
+						type = " - ?";
+						break;
+					}
+
+					ImGui::Checkbox( std::string( "Multiply Bet" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].MultiplyBet );
+					if ( cfg::Get( ).Betting.type[ i ].MultiplyBet ) {
+						ImGui::Checkbox( std::string( "Reset if different" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].ResetIfDifferent );
+						ImGui::SliderFloat( std::string( "Multiplier" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].BetMultiplier , 0 , 300 );
+						ImGui::SliderInt( std::string( "Max Times" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].MaxMultiplierTimes , 0 , 10 );
+						ImGui::SliderInt( std::string( "Multiply after" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].MultiplyAfterX , 0 , 10 );
+
+						if ( i == LOSE )
+						{
+							ImGui::Checkbox( "Protect Profit" , &cfg::Get( ).Betting.security.ProtectProfit );
+							if ( cfg::Get( ).Betting.security.ProtectProfit )
+							{
+								ImGui::SliderFloat( "Protect if profit" , &cfg::Get( ).Betting.security.ProtectIfProfit , 1 , 100 );
+								ImGui::SliderFloat( "Protect percentage" , &cfg::Get( ).Betting.security.ProfitProtectPercentage , 1 , 100 );
+							}
+
+							ImGui::Checkbox( "Protect Capital" , &cfg::Get( ).Betting.security.ProtectCapital );
+							if ( cfg::Get( ).Betting.security.ProtectCapital )
+							{				
+								ImGui::SliderFloat( "Protect percentage - C" , &cfg::Get( ).Betting.security.CapitalProtectPercentage , 1 , 100 );
+							}
+
+							ImGui::Checkbox( "Predict down peaks" , &cfg::Get( ).Betting.security.PredictDownPeaks );
+						}
 					}
 
 					ImGui::NewLine( );
 				}
 
-
-
-				ImGui::Checkbox( "MultiplyBetOnWin" , &g_globals.Betting.MultiplyBetOnWin );
-				if ( g_globals.Betting.MultiplyBetOnWin )
+				ImGui::Checkbox( "Prevent from down peaks" , &cfg::Get().Betting.security.PreventDownPeaks );
+				if ( cfg::Get( ).Betting.security.PreventDownPeaks )
 				{
-					ImGui::SliderInt( "Multiply after - win" , &g_globals.Betting.MultiplyBetAfterXWin , 1 , 10 );
-					ImGui::SliderInt( "Max multiplier times - win" , &g_globals.Betting.MaxMultiplierTimesOnWin , 1 , 10 );
-					ImGui::SliderFloat( "Win multiplier" , &g_globals.Betting.WonBetMultiplier , 0 , 200 );
-
-					ImGui::Checkbox( "Reset count on lose" , &g_globals.Betting.ResetNextBetMultiplierOnLose );
-					ImGui::NewLine( );
+					ImGui::SliderInt( "Peek Distance" , &cfg::Get().Betting.security.MinimumPeakDistance , 1 , 50 );
+					ImGui::SliderFloat( "Prevent if peek is (%)" , &cfg::Get().Betting.security.MinimumPeakValue , 0 , 100 );
+					ImGui::SliderInt( "Waiting Time (minutes)" , &cfg::Get().Betting.security.WaitingTime , 1 , 120 );		
 				}
+				ImGui::NewLine( );
 
-				ImGui::Checkbox( "Wait if losing" , &g_globals.Betting.WaitIfLosing );
-				if ( g_globals.Betting.WaitIfLosing )
-				{
-					ImGui::SliderInt( "Wait after" , &g_globals.Betting.WaitAfterXLose , 1 , 10 );
-					ImGui::SliderInt( "Wait amount" , &g_globals.Betting.WaitAmount , 1 , 10 );
-					ImGui::Checkbox( "Reset Stand If win" , &g_globals.Betting.ResetCountIfWin );
-					ImGui::Checkbox( "Wait again if lose" , &g_globals.Betting.WaitAgainIfLose );
-					ImGui::NewLine( );
-				}
+				ImGui::SliderFloat( "Target Percentage" , &cfg::Get( ).Betting.TargetParcentage , 0 , 100 );
+				ImGui::SliderFloat( "Stop if lower than %" , &cfg::Get( ).Betting.StopPercentage , 0 , 100 );
 
-				ImGui::SliderFloat( "Target Percentage" , &g_globals.Betting.TargetParcentage , 0 , 100 );
-				ImGui::SliderFloat( "Stop if lower than %" , &g_globals.Betting.StopPercentage , 0 , 100 );
+				ImGui::SliderFloat( "Max Bet percentage" , &cfg::Get( ).Betting.MaxBetPercentage , 0 , 100 );
+				ImGui::SliderFloat( "Min Bet percentage" , &cfg::Get( ).Betting.MinBetPercentage , 0 , 20 );
 
-				ImGui::SliderFloat( "Max Bet percentage" , &g_globals.Betting.MaxBetPercentage , 0 , 100 );
-				ImGui::SliderFloat( "Min Bet percentage" , &g_globals.Betting.MinBetPercentage , 0 , 20 );
 
-				ImGui::Checkbox( "Prevent from down peaks" , &g_globals.Betting.PreventDownPeaks );
-				if ( g_globals.Betting.PreventDownPeaks )
-				{
-					ImGui::SliderInt( "Peek Distance" , &g_globals.Betting.MinimumPeakDistance , 1 , 50 );
-					ImGui::SliderFloat( "Prevent if peek is (%)" , &g_globals.Betting.PreventIfAbove , 0 , 100 );
-					ImGui::SliderInt( "Waiting Time (minutes)" , &g_globals.Betting.WaitingTime , 1 , 120 );
-				}
+
+				//ImGui::Checkbox( "Multiply Bet on lose" , &g_globals.Betting.MultiplyBetOnLose );
+				//if ( g_globals.Betting.MultiplyBetOnLose )
+				//{
+				//	ImGui::SliderInt( "Multiply after - lose" , &g_globals.Betting.MultiplyBetAfterXLose , 1 , 10 );
+				//	ImGui::SliderInt( "Max multiplier times - lose" , &g_globals.Betting.MaxMultiplierTimesOnLose , 1 , 10 );
+				//	ImGui::SliderFloat( "Lose multiplier" , &g_globals.Betting.LoseBetMultiplier , 0 , 200 );
+				//	ImGui::Checkbox( "Reset count on win" , &g_globals.Betting.ResetNextBetMultiplierOnWin );
+				//
+				//	ImGui::Checkbox( "Protect Profit" , &g_globals.Betting.ProtectProfit );
+				//	if ( g_globals.Betting.ProtectProfit )
+				//	{
+				//		ImGui::SliderFloat( "Protect if profit" , &g_globals.Betting.ProtectAfter , 1 , 100 );
+				//		ImGui::SliderFloat( "Protect percentage" , &g_globals.Betting.ProtectPercentage , 1 , 100 );
+				//	}
+				//
+				//	ImGui::NewLine( );
+				//}
+				//
+				//
+				//
+				//ImGui::Checkbox( "MultiplyBetOnWin" , &g_globals.Betting.MultiplyBetOnWin );
+				//if ( g_globals.Betting.MultiplyBetOnWin )
+				//{
+				//	ImGui::SliderInt( "Multiply after - win" , &g_globals.Betting.MultiplyBetAfterXWin , 1 , 10 );
+				//	ImGui::SliderInt( "Max multiplier times - win" , &g_globals.Betting.MaxMultiplierTimesOnWin , 1 , 10 );
+				//	ImGui::SliderFloat( "Win multiplier" , &g_globals.Betting.WonBetMultiplier , 0 , 200 );
+				//
+				//	ImGui::Checkbox( "Reset count on lose" , &g_globals.Betting.ResetNextBetMultiplierOnLose );
+				//	ImGui::NewLine( );
+				//}
+				//
+				//ImGui::Checkbox( "Wait if losing" , &g_globals.Betting.WaitIfLosing );
+				//if ( g_globals.Betting.WaitIfLosing )
+				//{
+				//	ImGui::SliderInt( "Wait after" , &g_globals.Betting.WaitAfterXLose , 1 , 10 );
+				//	ImGui::SliderInt( "Wait amount" , &g_globals.Betting.WaitAmount , 1 , 10 );
+				//	ImGui::Checkbox( "Reset Stand If win" , &g_globals.Betting.ResetCountIfWin );
+				//	ImGui::Checkbox( "Wait again if lose" , &g_globals.Betting.WaitAgainIfLose );
+				//	ImGui::NewLine( );
+				//}
+				//
+				//ImGui::SliderFloat( "Target Percentage" , &g_globals.Betting.TargetParcentage , 0 , 100 );
+				//ImGui::SliderFloat( "Stop if lower than %" , &g_globals.Betting.StopPercentage , 0 , 100 );
+				//
+				//ImGui::SliderFloat( "Max Bet percentage" , &g_globals.Betting.MaxBetPercentage , 0 , 100 );
+				//ImGui::SliderFloat( "Min Bet percentage" , &g_globals.Betting.MinBetPercentage , 0 , 20 );
+				//
+				//ImGui::Checkbox( "Prevent from down peaks" , &g_globals.Betting.PreventDownPeaks );
+				//if ( g_globals.Betting.PreventDownPeaks )
+				//{
+				//	ImGui::SliderInt( "Peek Distance" , &g_globals.Betting.MinimumPeakDistance , 1 , 50 );
+				//	ImGui::SliderFloat( "Prevent if peek is (%)" , &g_globals.Betting.PreventIfAbove , 0 , 100 );
+				//	ImGui::SliderInt( "Waiting Time (minutes)" , &g_globals.Betting.WaitingTime , 1 , 120 );
+				//}
 
 
 				ImGui::End( );
 			}
 
-			if ( g_globals.Windows.ShowPredictionWindow ) {
+			if ( cfg::Get().Windows.ShowPredictionWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 400 , 200 ) );
 				ImGui::Begin( "Predicting Options" , NULL , ImGuiWindowFlags_NoResize );
-
-				ImGui::SliderInt( "Min Pattern size" , &g_globals.Prediction.MinPatterSize , 2 , 20 );
-				ImGui::SliderInt( "Ignore streaks after" , &g_globals.Prediction.IgnoreStreakAfter , 2 , 20 );
-				ImGui::SliderInt( "Streak Betting Spacing" , &g_globals.Prediction.StreakBettingSpacing , 1 , 10 );
-
-				ImGui::SliderFloat( "Minimum Chance" , &g_globals.Prediction.MinimumPercentage , 0 , 100 );
-				ImGui::SliderFloat( "Maximum Chance" , &g_globals.Prediction.MaximumPercentage , 0 , 100 );
-
+			
+				ImGui::SliderInt( "Min Pattern size" , &cfg::Get().Prediction.MinPatterSize , 2 , 20 );
+				ImGui::SliderInt( "Ignore streaks after" , &cfg::Get().Prediction.IgnoreStreakAfter , 2 , 20 );
+				ImGui::SliderInt( "Streak Betting Spacing" , &cfg::Get( ).Prediction.StreakBettingSpacing , 1 , 10 );
+			
+				ImGui::SliderFloat( "Minimum Chance" , &cfg::Get( ).Prediction.MinimumPercentage , 0 , 100 );
+				ImGui::SliderFloat( "Maximum Chance" , &cfg::Get( ).Prediction.MaximumPercentage , 0 , 100 );
+			
 				ImGui::End( );
 			}
 

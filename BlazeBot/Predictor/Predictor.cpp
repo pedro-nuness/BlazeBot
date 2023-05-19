@@ -3,7 +3,7 @@
 #include "Predictor.h"
 #include <numeric>
 
-#include "..\globals.h"
+#include "..\Utils\Config\Config.h"
 
 
 DoublePredictor::DoublePredictor( ) {}
@@ -598,13 +598,13 @@ Color DoublePredictor::IAPrediction( ) {
 
 		ColorIA.trained = true;
 
-		// Treina o modelo
+		// Treina o modelo	
 		ColorIA.Train( trainingData );
 
 		ColorIA.SaveModel( Folder + IAModel );
 		std::cout << "Saved model, path: " << Folder + IAModel << std::endl;
 	}
-
+	
 	std::vector<ColorManagement> label;
 
 	for ( int i = history.size( ) - ( IASize + 1 ); i < history.size( ); i++ )
@@ -894,7 +894,7 @@ Prediction DoublePredictor::predictNext( ) {
 		// We have a streak, let's see it
 		Color inversecolor = InverseColor( streak.color );
 
-		if ( streak.StreakSize >= g_globals.Prediction.IgnoreStreakAfter ) {
+		if ( streak.StreakSize >= cfg::Get().Prediction.IgnoreStreakAfter ) {
 			// We have a big streak, don't bet anything
 			// R, R, R, R -> ?
 			ResetPrediction( &FinalPrediction );
@@ -993,7 +993,7 @@ Prediction DoublePredictor::predictNext( ) {
 		SeparatedPrediction[ SEQUENCE ] = SequencePrediction;
 	}
 
-	Color PatterPrediction = SearchPattern( g_globals.Prediction.MinPatterSize );
+	Color PatterPrediction = SearchPattern( cfg::Get( ).Prediction.MinPatterSize );
 
 	if ( PatterPrediction != Null )
 	{
