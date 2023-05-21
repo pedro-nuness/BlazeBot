@@ -34,7 +34,7 @@ std::string IAPATH = "IA.pt";
 std::string JSName = "js.js";
 std::string HistoryName = "history.json";
 std::string ImportName = "import.json";
-std::string IAModel = "IA.pt";
+std::string IAModel = "IA";
 bool Stop = false;
 
 DoublePredictor predictor;
@@ -127,6 +127,14 @@ POINT GetPoint( std::string name , json & js ) {
 	return POINT( js[ name ][ "x" ] , js[ name ][ "y" ] );
 }
 
+POINT TransformVec( Vector2D vec) {
+	return POINT( vec.x , vec.y );
+}
+
+Vector2D TransformPoint( POINT p ) {
+	return Vector2D( p.x , p.y );
+}
+
 void save_cfg( bool read ) {
 
 	json cfg;
@@ -135,78 +143,6 @@ void save_cfg( bool read ) {
 	static bool settuped_initial = false;
 
 	if ( read ) {
-
-		//std::fstream arquivo( DIR );// abre o arquivo para leitura
-		//if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
-		//
-		//	cfg = json::parse( arquivo );
-		//	arquivo.close( ); // fecha o arquivo
-		//}
-		//else {
-		//	std::cout << "Não foi possível abrir o arquivo" << std::endl;
-		//	return;
-		//}
-		//
-		//betManager.SetRedPosition( GetPoint( "RedPos" , cfg ) );
-		//betManager.SetBlackPosition( GetPoint( "BlackPos" , cfg ) );
-		//betManager.SetWhitePosition( GetPoint( "WhitePos" , cfg ) );
-		//betManager.SetInputPosition( GetPoint( "InputPos" , cfg ) );
-		//betManager.SetStartPosition( GetPoint( "StartPos" , cfg ) );
-		//betManager.CurrentPlayer = Player( cfg[ "InitialBalance" ] );
-		//betManager.CurrentPlayer.SetBalance( cfg[ "Balance" ] );
-		//betManager.BalanceHistory.emplace_back( betManager.CurrentPlayer.GetBalance( ) );
-		//if ( cfg[ "BalanceGraph" ].is_array( ) )
-		//{
-		//	std::vector<float> balance_g;
-		//
-		//	for ( auto & value : cfg[ "BalanceGraph" ] )
-		//	{
-		//		balance_g.emplace_back( value );
-		//	}
-		//
-		//	betManager.BalanceHistory = balance_g;
-		//}
-		//
-		//g_globals.Prediction.IgnoreStreakAfter = cfg[ "Config" ][ "Prediction" ][ "IgnoreStreakAfter" ];
-		//g_globals.Prediction.StreakBettingSpacing = cfg[ "Config" ][ "Prediction" ][ "StreakBettingSpacing" ];
-		//g_globals.Prediction.InvertIfMissing = cfg[ "Config" ][ "Prediction" ][ "InvertIfMissing" ];
-		//g_globals.Prediction.InvertIfMissingAbove = cfg[ "Config" ][ "Prediction" ][ "InvertIfMissingAbove" ];
-		//g_globals.Prediction.MaximumPercentage = cfg[ "Config" ][ "Prediction" ][ "MaximumPercentage" ];
-		//g_globals.Prediction.MinimumPercentage = cfg[ "Config" ][ "Prediction" ][ "MinimumPercentage" ];
-		//g_globals.Prediction.MinPatterSize = cfg[ "Config" ][ "Prediction" ][ "MinPatterSize" ];
-		//
-		//g_globals.Betting.AutoBet = cfg[ "Config" ][ "Betting" ][ "AutoBet" ];
-		//g_globals.Betting.LoseBetMultiplier = cfg[ "Config" ][ "Betting" ][ "LoseBetMultiplier" ];
-		//g_globals.Betting.MaxBetPercentage = cfg[ "Config" ][ "Betting" ][ "MaxBetPercentage" ];
-		//g_globals.Betting.MaxMultiplierTimesOnLose = cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnLose" ];
-		//g_globals.Betting.MaxMultiplierTimesOnWin = cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnWin" ];
-		//g_globals.Betting.MinBetPercentage = cfg[ "Config" ][ "Betting" ][ "MinBetPercentage" ];
-		//g_globals.Betting.MultiplyBetAfterXLose = cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXLose" ];
-		//g_globals.Betting.MultiplyBetAfterXWin = cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXWin" ];
-		//g_globals.Betting.MultiplyBetOnLose = cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnLose" ];
-		//g_globals.Betting.MultiplyBetOnWin = cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnWin" ];
-		//g_globals.Betting.ResetNextBetMultiplierOnLose = cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnLose" ];
-		//g_globals.Betting.ResetNextBetMultiplierOnWin = cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnWin" ];
-		//g_globals.Betting.WaitAfterXLose = cfg[ "Config" ][ "Betting" ][ "WaitAfterXLose" ];
-		//g_globals.Betting.WaitAmount = cfg[ "Config" ][ "Betting" ][ "WaitAmount" ];
-		//g_globals.Betting.WaitIfLosing = cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ];
-		//g_globals.Betting.WonBetMultiplier = cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ];
-		//
-		//g_globals.Betting.TargetParcentage = cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ];
-		//g_globals.Betting.StopPercentage = cfg[ "Config" ][ "Betting" ][ "StopPercentage" ];
-		//
-		//g_globals.Betting.ResetCountIfWin = cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ];
-		//g_globals.Betting.WaitAgainIfLose = cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ];
-		//
-		//g_globals.Betting.PreventDownPeaks = cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ];
-		//g_globals.Betting.MinimumPeakDistance = cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ];
-		//g_globals.Betting.PreventIfAbove = cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ];
-		//g_globals.Betting.WaitingTime = cfg[ "Config" ][ "Betting" ][ "WaitingTime" ];
-		//
-		//g_globals.Betting.ProtectProfit = cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ];
-		//g_globals.Betting.ProtectAfter = cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ];
-		//g_globals.Betting.ProtectPercentage = cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ];
-
 		LoadCfg( "config.json" );
 
 		if ( !betManager.CurrentPlayer.IsSetupped( ) )
@@ -214,72 +150,23 @@ void save_cfg( bool read ) {
 			betManager.CurrentPlayer = Player( cfg::Get( ).Game.InitialBalance );
 			betManager.CurrentPlayer.SetBalance( cfg::Get( ).Game.CurrentBalance );
 			betManager.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
-		}
 
+			betManager.SetRedPosition( TransformVec( cfg::Get( ).Betting.automatic.RedPoint ) );
+			betManager.SetBlackPosition( TransformVec( cfg::Get( ).Betting.automatic.BlackPoint ) );
+			betManager.SetWhitePosition( TransformVec( cfg::Get( ).Betting.automatic.WhitePoint ) );
+			betManager.SetInputPosition( TransformVec( cfg::Get( ).Betting.automatic.InputPoint ) );
+			betManager.SetStartPosition( TransformVec( cfg::Get( ).Betting.automatic.BetPoint ) );
+		}
 	}
 	else {
 
-		SaveCFG( "config.json" );
+		cfg::Get( ).Betting.automatic.RedPoint = TransformPoint( betManager.GetRedPosition( ) );
+		cfg::Get( ).Betting.automatic.BlackPoint = TransformPoint( betManager.GetBlackPosition( ) );
+		cfg::Get( ).Betting.automatic.WhitePoint = TransformPoint( betManager.GetWhitePosition( ) );
+		cfg::Get( ).Betting.automatic.InputPoint = TransformPoint( betManager.GetInputPosition( ) );
+		cfg::Get( ).Betting.automatic.BetPoint = TransformPoint( betManager.GetStartPosition( ) );
 
-
-		//SavePoint( "RedPos" , cfg , betManager.GetRedPosition( ) );
-		//SavePoint( "BlackPos" , cfg , betManager.GetBlackPosition( ) );
-		//SavePoint( "WhitePos" , cfg , betManager.GetWhitePosition( ) );
-		//SavePoint( "InputPos" , cfg , betManager.GetInputPosition( ) );
-		//SavePoint( "StartPos" , cfg , betManager.GetStartPosition( ) );
-		//cfg[ "Balance" ] = betManager.CurrentPlayer.GetBalance( );
-		//cfg[ "BalanceGraph" ] = betManager.BalanceHistory;
-		//cfg[ "InitialBalance" ] = betManager.CurrentPlayer.GetInitialMoney( );
-		//
-		//cfg[ "Config" ][ "Prediction" ][ "IgnoreStreakAfter" ] = g_globals.Prediction.IgnoreStreakAfter;
-		//cfg[ "Config" ][ "Prediction" ][ "StreakBettingSpacing" ] = g_globals.Prediction.StreakBettingSpacing;
-		//cfg[ "Config" ][ "Prediction" ][ "InvertIfMissing" ] = g_globals.Prediction.InvertIfMissing;
-		//cfg[ "Config" ][ "Prediction" ][ "InvertIfMissingAbove" ] = g_globals.Prediction.InvertIfMissingAbove;
-		//cfg[ "Config" ][ "Prediction" ][ "MaximumPercentage" ] = g_globals.Prediction.MaximumPercentage;
-		//cfg[ "Config" ][ "Prediction" ][ "MinimumPercentage" ] = g_globals.Prediction.MinimumPercentage;
-		//cfg[ "Config" ][ "Prediction" ][ "MinPatterSize" ] = g_globals.Prediction.MinPatterSize;
-		//
-		//cfg[ "Config" ][ "Betting" ][ "AutoBet" ] = g_globals.Betting.AutoBet;
-		//cfg[ "Config" ][ "Betting" ][ "LoseBetMultiplier" ] = g_globals.Betting.LoseBetMultiplier;
-		//cfg[ "Config" ][ "Betting" ][ "MaxBetPercentage" ] = g_globals.Betting.MaxBetPercentage;
-		//cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnLose" ] = g_globals.Betting.MaxMultiplierTimesOnLose;
-		//cfg[ "Config" ][ "Betting" ][ "MaxMultiplierTimesOnWin" ] = g_globals.Betting.MaxMultiplierTimesOnWin;
-		//cfg[ "Config" ][ "Betting" ][ "MinBetPercentage" ] = g_globals.Betting.MinBetPercentage;
-		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXLose" ] = g_globals.Betting.MultiplyBetAfterXLose;
-		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetAfterXWin" ] = g_globals.Betting.MultiplyBetAfterXWin;
-		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnLose" ] = g_globals.Betting.MultiplyBetOnLose;
-		//cfg[ "Config" ][ "Betting" ][ "MultiplyBetOnWin" ] = g_globals.Betting.MultiplyBetOnWin;
-		//cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnLose" ] = g_globals.Betting.ResetNextBetMultiplierOnLose;
-		//cfg[ "Config" ][ "Betting" ][ "ResetNextBetMultiplierOnWin" ] = g_globals.Betting.ResetNextBetMultiplierOnWin;
-		//cfg[ "Config" ][ "Betting" ][ "WaitAfterXLose" ] = g_globals.Betting.WaitAfterXLose;
-		//cfg[ "Config" ][ "Betting" ][ "WaitAmount" ] = g_globals.Betting.WaitAmount;
-		//cfg[ "Config" ][ "Betting" ][ "WaitIfLosing" ] = g_globals.Betting.WaitIfLosing;
-		//cfg[ "Config" ][ "Betting" ][ "WonBetMultiplier" ] = g_globals.Betting.WonBetMultiplier;
-		//
-		//cfg[ "Config" ][ "Betting" ][ "TargetParcentage" ] = g_globals.Betting.TargetParcentage;
-		//cfg[ "Config" ][ "Betting" ][ "StopPercentage" ] = g_globals.Betting.StopPercentage;
-		//
-		//cfg[ "Config" ][ "Betting" ][ "ResetCountIfWin" ] = g_globals.Betting.ResetCountIfWin;
-		//cfg[ "Config" ][ "Betting" ][ "WaitAgainIfLose" ] = g_globals.Betting.WaitAgainIfLose;
-		//
-		//cfg[ "Config" ][ "Betting" ][ "PreventDownPeaks" ] = g_globals.Betting.PreventDownPeaks;
-		//cfg[ "Config" ][ "Betting" ][ "MinimumPeakDistance" ] = g_globals.Betting.MinimumPeakDistance;
-		//cfg[ "Config" ][ "Betting" ][ "PreventIfAbove" ] = g_globals.Betting.PreventIfAbove;
-		//cfg[ "Config" ][ "Betting" ][ "WaitingTime" ] = g_globals.Betting.WaitingTime;
-		//
-		//cfg[ "Config" ][ "Betting" ][ "ProtectProfit" ] = g_globals.Betting.ProtectProfit;
-		//cfg[ "Config" ][ "Betting" ][ "ProtectAfter" ] = g_globals.Betting.ProtectAfter;
-		//cfg[ "Config" ][ "Betting" ][ "ProtectPercentage" ] = g_globals.Betting.ProtectPercentage;
-		//
-		//std::ofstream  arquivo( DIR );// abre o arquivo para leitura
-		//if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
-		//
-		//	arquivo << cfg;
-		//	arquivo.close( ); // fecha o arquivo
-		//}
-		//else {
-		//	std::cout << "Não foi possível abrir o arquivo" << std::endl;
-		//}
+		SaveCFG( "config.json" );	
 	}
 }
 
@@ -294,7 +181,74 @@ std::string Str( std::string label , T data ) {
 	return st;
 }
 
+bool pressed_insert = false;
 
+void SetPoint( POINT * point ) {
+	while ( true ) {
+
+		if ( GetAsyncKeyState( VK_INSERT ) )
+		{
+			pressed_insert = true;
+		}
+		else if ( pressed_insert ) {
+			pressed_insert = false;
+			GetCursorPos( point );
+			break;
+		}
+
+		std::this_thread::sleep_for( std::chrono::milliseconds( 30 ) );
+	}
+}
+
+void SetupPoints( BetManager* bet) {
+
+	std::cout << "PRESS INSERT TO SET RED POSITION!\n";
+	std::cout << "Waiting VK_INSERT!\n";
+
+	POINT pos;
+	SetPoint( &pos );
+	bet->SetRedPosition( pos );
+	pos.x = 0;
+	pos.y = 0;
+
+
+	std::cout << "PRESS INSERT TO SET BLACK POSITION!\n";
+	std::cout << "Waiting VK_INSERT!\n";
+
+	SetPoint( &pos );
+	bet->SetBlackPosition( pos );
+	pos.x = 0;
+	pos.y = 0;
+
+
+	std::cout << "PRESS INSERT TO SET WHITE POSITION!\n";
+	std::cout << "Waiting VK_INSERT!\n";
+
+	SetPoint( &pos );
+	bet->SetWhitePosition( pos );
+	pos.x = 0;
+	pos.y = 0;
+
+	std::cout << "PRESS INSERT TO SET INPUT POSITION!\n";
+	std::cout << "Waiting VK_INSERT!\n";
+
+	SetPoint( &pos );
+	bet->SetInputPosition( pos );
+	pos.x = 0;
+	pos.y = 0;
+
+	std::cout << "PRESS INSERT TO SET START POSITION!\n";
+	std::cout << "Waiting VK_INSERT!\n";
+
+	SetPoint( &pos );
+	bet->SetStartPosition( pos );
+	pos.x = 0;
+	pos.y = 0;
+
+	system( "cls" );
+
+	std::cout << "Sucessfully settuped bet points!\n";
+}
 
 int main( int , char ** )
 {
@@ -314,6 +268,11 @@ int main( int , char ** )
 
 		if ( Exist( Folder + "config.json" ) ) {
 			save_cfg( true );
+
+			if(!betManager.GetRedPosition().x)
+				SetupPoints( &betManager );
+
+			save_cfg( false );
 		}
 		else
 		{
@@ -324,6 +283,8 @@ int main( int , char ** )
 			std::cout << "Insert Your Current Balance: ";
 			std::cin >> balance;
 			betManager.CurrentPlayer = Player( balance );
+
+			SetupPoints( &betManager );
 
 			save_cfg( false );
 		}
@@ -709,6 +670,7 @@ int main( int , char ** )
 				ImGui::SetNextWindowSize( ImVec2( 450 , 280 ) );
 				ImGui::Begin( "Betting Options" , NULL , ImGuiWindowFlags_NoResize );
 
+				ImGui::Checkbox( "Auto bet" , &cfg::Get( ).Betting.automatic.AutoBet );
 
 				for ( int i = 0; i < 2; i++ )
 				{

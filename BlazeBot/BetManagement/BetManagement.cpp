@@ -226,7 +226,6 @@ void BetManager::addColor( json play , bool write ) {
 
 	predictor->addColor( play );
 
-
 	std::cout << "Add: " << "c:" << c << ", r: " << play[ "roll" ] << ", id: " << play[ "server_seed" ] << std::endl;
 	switch ( c ) {
 	case Red:
@@ -324,6 +323,7 @@ void ImportToBot( BetManager * bet ) {
 	js[ "whitebetvalue" ] = bet->GetCurrentPrediction( ).GetWhiteBet( );
 	js[ "history" ] = bet->GetPredictor( )->GetGameTransition( 13 ).Colors;
 	js[ "accuracy" ] = bet->SeparatedBeats[ GENERAL ].GetHitsPercentage( );
+	js[ "balancehistory" ] = bet->BalanceHistory;
 
 	std::ofstream arquivo( Folder + ImportName , std::ios::trunc );
 
@@ -341,6 +341,12 @@ void BetManager::ManageBets( ) {
 	int last_history_size = -1;
 
 	bool pressed_del = false;
+
+	bool PressedNum1 = false;
+	bool PressedNum2 = false;
+	bool PressedNum3 = false;
+	bool PressedNum4 = false;
+	bool PressedNum5 = false;
 
 	while ( true )
 	{
@@ -370,10 +376,15 @@ void BetManager::ManageBets( ) {
 
 				ImportToBot( this );
 
+				if ( cfg::Get( ).Betting.automatic.AutoBet && NextBet.DidBet() )
+				{
+					DoBet( );
+				}
+
 				last_history_size = hist.size( );
 			}
 
-			if ( GetAsyncKeyState( VK_DELETE ) )
+			if ( GetAsyncKeyState( VK_NUMLOCK ) )
 			{
 				pressed_del = true;
 			}
@@ -383,6 +394,55 @@ void BetManager::ManageBets( ) {
 				pressed_del = false;
 			}
 
+			if ( GetKeyState( VK_NUMPAD1 ) )
+			{
+				PressedNum1 = true;
+			}
+			else if ( PressedNum1 )
+			{
+				PressedNum1 = false;
+				SetCursorPos( this->RedPos.x , this->RedPos.y );
+			}
+
+			if ( GetKeyState( VK_NUMPAD2 ) )
+			{
+				PressedNum2 = true;
+			}
+			else if ( PressedNum2 )
+			{
+				PressedNum2 = false;
+				SetCursorPos( this->BlackPos.x , this->BlackPos.y );
+			}
+
+			if ( GetKeyState( VK_NUMPAD3 ) )
+			{
+				PressedNum3 = true;
+			}
+			else if ( PressedNum3 )
+			{
+				PressedNum3 = false;
+				SetCursorPos( this->WhitePos.x , this->WhitePos.y );
+			}
+
+			if ( GetKeyState( VK_NUMPAD4 ) )
+			{
+				PressedNum4 = true;
+			}
+			else if ( PressedNum4 )
+			{
+				PressedNum4 = false;
+				SetCursorPos( this->InputPos.x , this->InputPos.y );
+			}
+
+			if ( GetKeyState( VK_NUMPAD5 ) )
+			{
+				PressedNum5 = true;
+			}
+			else if ( PressedNum5 )
+			{
+				PressedNum5 = false;
+				SetCursorPos( this->StartBetPos.x , this->StartBetPos.y );
+			}
 
 			Sleep( 500 );
 		}
@@ -1079,10 +1139,17 @@ Bet BetManager::PredictBets( Prediction predict ) {
 
 							std::vector<int> RollLoses = SeparatedBeats[ GENERAL ].GetRollLoses( );
 
+
+							int Count = 0;
 							for ( auto Roll : RollLoses )
 							{
+								if ( Count >= BalanceHistory.size( ) )
+									break;
+
 								if ( Roll > SeparatedBeats[ GENERAL ].GetMediumRollLoseAmount( ) + 1 )
 									OutLiners.emplace_back( Roll );
+
+								Count++;
 							}
 
 							if ( !OutLiners.empty( ) ) {
@@ -1211,27 +1278,71 @@ void MouseClick( )
 	mouse_event( MOUSEEVENTF_LEFTUP , 0 , 0 , 0 , 0 );
 }
 
-void typeNumber( int num ) {
-	// Converte o número para uma string
-	std::string strNum = std::to_string( num );
-
-	// Itera sobre os dígitos do número e simula a entrada no teclado
-	for ( char & c : strNum ) {
-		int keyCode = c - '0'; // Converte o caractere para o código da tecla numérica correspondente
-		keybd_event( 0x30 + keyCode , 0 , 0 , 0 ); // Pressiona a tecla correspondente ao dígito
-		keybd_event( 0x30 + keyCode , 0 , KEYEVENTF_KEYUP , 0 ); // Libera a tecla correspondente ao dígito
-	}
-}
-
 void SetAndClick( POINT pos ) {
-	Sleep( 800 );
+	Sleep( 500 );
 	SetCursorPos( pos.x , pos.y );
-	Sleep( 800 );
+	Sleep( 500 );
 	MouseClick( );
 }
 
+bool isDecimalNumber( const std::string & s ) {
+
+	size_t pos = s.find( '.' );
+	if ( pos == std::string::npos )
+		return false;  // Nenhum ponto na string.
+
+	// Verifique se as partes antes e depois do ponto são números.
+	try {
+		std::stod( s.substr( 0 , pos ) );
+		double fracionario = std::stod( s.substr( pos + 1 ) );
+
+		// Verifique se a parte fracionária é diferente de zero.
+		if ( fracionario != 0 )
+			return true;
+		else
+			return false;
+
+	}
+	catch ( const std::invalid_argument & ia ) {
+		// Se a substring não é um número, stod lançará uma exceção.
+		return false;
+	}
+}
+
+void typeNumber( double num ) {
+	// Converte o número para uma string
+	std::string strNum = std::to_string( num );
+
+	bool Decimal = isDecimalNumber( strNum );
+
+	// Remove os zeros adicionais à esquerda
+	strNum.erase( strNum.find_last_not_of( '0' ) + 1 , std::string::npos );
+
+	if ( !Decimal )
+		strNum.erase( std::remove( strNum.begin( ) , strNum.end( ) , '.' ) , strNum.end( ) );
+	else
+		// Substitui o ponto decimal por uma vírgula
+		std::replace( strNum.begin( ) , strNum.end( ) , '.' , ',' );
+
+	// Itera sobre os dígitos do número e simula a entrada no teclado
+	for ( char & c : strNum ) {
+		if ( c == ',' ) {
+			keybd_event( VK_OEM_COMMA , 0 , 0 , 0 ); // Pressiona a tecla de vírgula
+			keybd_event( VK_OEM_COMMA , 0 , KEYEVENTF_KEYUP , 0 ); // Libera a tecla de vírgula
+		}
+		else {
+			int keyCode = c - '0'; // Converte o caractere para o código da tecla numérica correspondente
+			keybd_event( 0x30 + keyCode , 0 , 0 , 0 ); // Pressiona a tecla correspondente ao dígito
+			keybd_event( 0x30 + keyCode , 0 , KEYEVENTF_KEYUP , 0 ); // Libera a tecla correspondente ao dígito
+		}
+	}
+}
+
+
 void BetManager::DoBet( ) {
 	POINT colorpos = { 0,0 };
+
+	Sleep( 2500 );
 
 	switch ( this->CurrentPrediction.GetColor( ) )
 	{
@@ -1249,12 +1360,40 @@ void BetManager::DoBet( ) {
 		break;
 	}
 
+	//Clica na cor
 	SetAndClick( colorpos );
+
+	//Coloca o valor da aposta
 	SetAndClick( this->InputPos );
-	Sleep( 1000 );
+	Sleep( 500 );
 	typeNumber( this->CurrentPrediction.GetBetAmount( ) );
-	Sleep( 1000 );
+
+	//Aposta
+	Sleep( 500 );
 	SetAndClick( this->StartBetPos );
+
+	if ( this->CurrentPrediction.GetWhiteBet( ) )
+	{
+		Sleep( 500 );
+
+		//Apostar no branco
+		 
+		//Clica na cor
+		SetAndClick( this->WhitePos);
+
+		//Coloca o valor da aposta
+		SetAndClick( this->InputPos );
+		Sleep( 500 );
+		typeNumber( this->CurrentPrediction.GetWhiteBet( ) );
+
+		//Aposta
+		Sleep( 500 );
+		SetAndClick( this->StartBetPos );
+	}
+	Sleep( 500 );
+	SetCursorPos( 0 , 0 );
+
+
 }
 
 

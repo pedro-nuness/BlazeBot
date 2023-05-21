@@ -14,6 +14,11 @@ public:
 		y = 0;
 	}
 
+	Vector2D(int x, int y ) {
+		this->x = x;
+		this->y = y;
+	}
+
 };
 
 class cfg : public CSingleton<cfg> {

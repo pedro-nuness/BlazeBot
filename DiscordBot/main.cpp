@@ -1,6 +1,17 @@
 
+
+
 #include <dpp/dpp.h>
+#include <matplot/matplot.h>
 #include <filesystem>
+
+#pragma comment(lib, "matplot.lib")
+#pragma comment(lib, "Matplot++\\nodesoup.lib")
+
+
+//C:\Program Files\matplotplusplus 1.1.0\lib\Matplot++
+
+using namespace matplot;
 
 const std::string    BOT_TOKEN = "OTgxMzM0OTEwMDAwMzA4MjM0.G2c2lU.UetyElkiLj-e5Glcd6oi8XwgFcTHQ8nR27xUA8";
 
@@ -163,6 +174,17 @@ void SetupAutoMessages( ) {
 						bet_value += "White Bet: " + std::to_string( int( WhiteBetValue ) ) + "\n";
 					}
 
+					std::vector<float> BalanceHistory;
+
+					for ( auto value : js[ "balancehistory" ] ) {
+						BalanceHistory.emplace_back( value );
+					}
+
+					plot( BalanceHistory , "k" );
+
+					save( "graph.jpg" );
+					std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
+
 					dpp::embed embed = dpp::embed( ).
 						set_color( dpp::colors::red ).
 						set_title( "Prediction" ).
@@ -192,12 +214,20 @@ void SetupAutoMessages( ) {
 							"Balance" ,
 							balance_str ,
 							false
-						).
+						).						
 						//set_image( "https://dpp.dev/DPP-Logo.png" ).
 						set_footer( dpp::embed_footer( ).set_text( "Creation Time " ).set_icon( "https://blaze.com/images/logo-icon.png" ) ).
 						set_timestamp( time( 0 ) );
 
-					bot.message_create( dpp::message( PredictChannel , embed ) );
+			
+					dpp::message msg( PredictChannel , embed );
+
+					// attach the image to the message
+					msg.add_file( "image.jpg" , dpp::utility::read_file( "graph.jpg" ) );				
+					embed.set_image( "attachment://image.jpg" ); // reference to the attached file
+			
+					// send the message
+					bot.message_create( msg );
 				}
 			}
 
@@ -222,7 +252,6 @@ void SetupAutoMessages( ) {
 				float Profit = js[ "profit" ];
 				int ProfitPercentage = int( ( Profit / InitBalance ) * 100 );
 				bool Exit = js[ "exit" ];
-
 
 				std::string BalanceStr = "Final balance: " + std::to_string( ( int ) Balance ) + "\n";
 				BalanceStr += "Start balance: " + std::to_string( ( int ) InitBalance ) + "\n";
@@ -383,8 +412,13 @@ int main( ) {
 
 		} );
 
+
 	std::thread( SetupAutoMessages ).detach( );
 
 
 	bot.start( dpp::st_wait );
+
+ // Dados do gráfico
+	
+
 }

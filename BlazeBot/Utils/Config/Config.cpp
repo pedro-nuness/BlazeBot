@@ -57,6 +57,10 @@ public:
 		return ( reinterpret_cast< bool * >( ptr ) );
 	}
 
+	Vector2D * GetAdressAsPoint( ) {
+		return ( reinterpret_cast< Vector2D* >( ptr ) );
+	}
+
 	std::vector<float> * GetAdressAsVector( ) {
 		return ( reinterpret_cast< std::vector<float> * >( ptr ) );
 	}	
@@ -108,6 +112,7 @@ void Load( VARIABLE & var , json * cfgjson )
 	int * IntPtr = nullptr;
 	float * FloatPtr = nullptr;
 	std::vector<float> * VecPtr = nullptr;
+	Vector2D * PointPtr  = nullptr;
 	int type = var.GetType( );
 
 	if ( type != C ) {
@@ -124,6 +129,9 @@ void Load( VARIABLE & var , json * cfgjson )
 			break;
 		case V:
 			VecPtr = var.GetAdressAsVector( );
+			break;
+		case P:
+			PointPtr = var.GetAdressAsPoint( );
 			break;
 		}
 
@@ -145,6 +153,10 @@ void Load( VARIABLE & var , json * cfgjson )
 				for ( auto & value : Value ) {
 					VecPtr->emplace_back( value );
 				}
+				break;
+			case P:
+				PointPtr->x = Value[ "x" ];
+				PointPtr->y = Value[ "y" ];
 				break;
 			}
 		}
@@ -176,6 +188,7 @@ void Save( VARIABLE * var , json * cfgjson )
 	int * IntPtr = nullptr;
 	float * FloatPtr = nullptr;
 	std::vector<float> * VecPtr = nullptr;
+	Vector2D * PointPtr = nullptr;
 
 	json js2;
 	js2 = *cfgjson;
@@ -205,6 +218,11 @@ void Save( VARIABLE * var , json * cfgjson )
 		case V:
 			VecPtr = var->GetAdressAsVector( );
 			Value[ var->GetName( ) ] = *VecPtr;
+			break;
+		case P:
+			PointPtr = var->GetAdressAsPoint( );
+			Value[ var->GetName() ][ "x" ] = PointPtr->x;
+			Value[ var->GetName( ) ][ "y" ] = PointPtr->y;
 			break;
 		}
 
@@ -258,6 +276,12 @@ void AddVars( ) {
 
 	Add( &cfg::Get( ).Betting.automatic.SimulateBet , B , "SimulateBet" , bAutomaticClass );
 	Add( &cfg::Get( ).Betting.automatic.AutoBet , B , "AutoBet" , bAutomaticClass );
+
+	Add( &cfg::Get( ).Betting.automatic.RedPoint , P , "RedPoint" , bAutomaticClass );
+	Add( &cfg::Get( ).Betting.automatic.BlackPoint , P , "BlackPoint" , bAutomaticClass );
+	Add( &cfg::Get( ).Betting.automatic.WhitePoint , P , "WhitePoint" , bAutomaticClass );
+	Add( &cfg::Get( ).Betting.automatic.InputPoint , P , "InputPoint" , bAutomaticClass );
+	Add( &cfg::Get( ).Betting.automatic.BetPoint , P , "BetPoint" , bAutomaticClass );
 
 
 	for ( int i = 0; i < 2; i++ ) {

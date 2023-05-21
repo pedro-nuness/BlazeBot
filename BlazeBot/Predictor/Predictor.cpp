@@ -6,6 +6,12 @@
 #include "..\Utils\Config\Config.h"
 
 
+extern bool Exist( const std::string & name );
+extern std::string Folder;
+extern std::string IAModel;
+extern std::string JSName;
+extern std::string HistoryName;
+
 DoublePredictor::DoublePredictor( ) {}
 
 void DoublePredictor::clearResults( ) {
@@ -298,6 +304,23 @@ void ResetPrediction( Prediction * pred ) {
 	pred->PossibleWhite = false;
 }
 
+#define SHA256_DIGEST_LENGTH 32
+
+int ConvertSeed( std::string seed ) {
+
+	std::string nSedd = seed.substr( 0 , 16 );
+
+	std::stringstream ss;
+	for ( int i = 0; i < SHA256_DIGEST_LENGTH; ++i ) {
+		ss << std::hex << static_cast< int >( seed[ i ] );
+		if ( i >= 4 )
+			break;
+	}
+	std::string hashHex = ss.str( );
+
+	return std::stoull( hashHex , nullptr , 16 );
+}
+
 
 // Define o tipo de dado do conjunto de treinamento
 using TrainingData = std::vector<std::pair<std::vector<int> , Color>>;
@@ -308,6 +331,7 @@ private:
 	torch::nn::Linear hiddenLayer { nullptr };
 	torch::nn::Linear outputLayer { nullptr };
 	int window_size = 4;
+	int multiplier = 3;
 
 public:
 
@@ -315,44 +339,62 @@ public:
 
 	ColorPredictor( int window_size = 4 ) {
 		this->window_size = window_size;
-		inputLayer = torch::nn::Linear( torch::nn::LinearOptions( window_size * 2 , 32 ) );
+		inputLayer = torch::nn::Linear( torch::nn::LinearOptions( window_size * multiplier , 32 ) );
 		hiddenLayer = torch::nn::Linear( torch::nn::LinearOptions( 32 , 16 ) );
 		outputLayer = torch::nn::Linear( torch::nn::LinearOptions( 16 , 3 ) );
 	}
 
 	void SaveModel( const std::string & file_path ) {
-		torch::serialize::OutputArchive output_archive;
-		inputLayer->save( output_archive );
-		hiddenLayer->save( output_archive );
-		outputLayer->save( output_archive );
-		output_archive.save_to( file_path );
+		torch::serialize::OutputArchive output_iLayer;
+		torch::serialize::OutputArchive output_hLayer;
+		torch::serialize::OutputArchive output_oLayer;
+
+		inputLayer->save( output_iLayer );
+		hiddenLayer->save( output_hLayer );
+		outputLayer->save( output_oLayer );
+
+
+		output_iLayer.save_to( file_path + "_iLayer.pt" );
+		output_hLayer.save_to( file_path + "_hLayer.pt" );
+		output_oLayer.save_to( file_path + "_oLayer.pt" );
 	}
 
 	void LoadModel( const std::string & file_path ) {
-		torch::serialize::InputArchive input_archive;
-		input_archive.load_from( file_path );
-		inputLayer->load( input_archive );
-		hiddenLayer->load( input_archive );
-		outputLayer->load( input_archive );
+
+		torch::serialize::InputArchive input_iLayer;
+		torch::serialize::InputArchive input_hLayer;
+		torch::serialize::InputArchive input_oLayer;
+
+		input_iLayer.load_from( file_path + "_iLayer.pt" );
+		input_hLayer.load_from( file_path + "_hLayer.pt" );
+		input_oLayer.load_from( file_path + "_oLayer.pt" );
+
+		inputLayer->load( input_iLayer );
+		hiddenLayer->load( input_hLayer );
+		outputLayer->load( input_oLayer );
 	}
 
-	void Train( const TrainingData & trainingData ) {
+	void Train( const TrainingData & trainingData , const TrainingData & validationData ) {
 		// Verificar se a GPU (CUDA) está disponível e selecionar o dispositivo
 		torch::Device device = torch::cuda::is_available( ) ? torch::kCUDA : torch::kCPU;
 
 		// Mover o modelo para o dispositivo selecionado (GPU, se disponível)
 		inputLayer->to( device );
 
+		double min_validation_loss = std::numeric_limits<double>::max( );
+		int epochs_no_improve = 0;
+		int n_epochs_stop = 1; // número de épocas para parar o treinamento se não houver melhora
+
 		torch::optim::Adam optimizer( inputLayer->parameters( ) , torch::optim::AdamOptions( 0.001 ) );
 		torch::nn::CrossEntropyLoss lossFunction {};
 
 		for ( size_t epoch = 0; epoch < 200; ++epoch ) {
 			optimizer.zero_grad( );
-			auto inputs = torch::empty( { static_cast< int >( trainingData.size( ) ), window_size * 2 } ).to( device );
+			auto inputs = torch::empty( { static_cast< int >( trainingData.size( ) ), window_size * multiplier } ).to( device );
 			auto targets = torch::empty( static_cast< int >( trainingData.size( ) ) , torch::TensorOptions( ).dtype( torch::kLong ) ).to( device );
 
 			for ( size_t i = 0; i < trainingData.size( ); ++i ) {
-				for ( size_t j = 0; j < window_size * 2; ++j ) {
+				for ( size_t j = 0; j < window_size * multiplier; ++j ) {
 					inputs[ i ][ j ] = trainingData[ i ].first[ j ];
 				}
 				targets[ i ] = static_cast< int >( trainingData[ i ].second );
@@ -362,40 +404,68 @@ public:
 			auto loss = lossFunction( output , targets );
 			loss.backward( );
 			optimizer.step( );
+
+			std::cout << "Epoch: " << epoch << ", Loss: " << int( loss.item<double>( ) ) << std::endl;
+
+
+			// validate the model
+			auto val_inputs = torch::empty( { static_cast< int >( validationData.size( ) ), window_size * multiplier } ).to( device );
+			auto val_targets = torch::empty( static_cast< int >( validationData.size( ) ) , torch::TensorOptions( ).dtype( torch::kLong ) ).to( device );
+			for ( size_t i = 0; i < validationData.size( ); ++i ) {
+				for ( size_t j = 0; j < window_size * multiplier; ++j ) {
+					val_inputs[ i ][ j ] = validationData[ i ].first[ j ];
+				}
+				val_targets[ i ] = static_cast< int >( validationData[ i ].second );
+			}
+			auto val_output = Forward( val_inputs );
+			auto val_loss = lossFunction( val_output , val_targets );
+
+			std::cout << "Validation of Epoch: " << epoch << ", Loss: " << int( val_loss.item<double>( ) ) << std::endl;
+
+
+			// check for improvement
+			if ( val_loss.item<double>( ) < min_validation_loss ) {
+				min_validation_loss = val_loss.item<double>( );
+				epochs_no_improve = 0;
+			}
+			else {
+				epochs_no_improve++;
+				if ( epochs_no_improve == n_epochs_stop ) {
+					std::cout << "Early stopping!" << std::endl;
+					break; // early stop
+				}
+			}
 		}
 	}
 
 	// Faz uma previsão com base em uma cor e um rolo
 	Color Predict( std::vector<ColorManagement> history ) {
 
-		auto input = torch::empty( { 1, window_size * 2 } );
+		auto input = torch::empty( { 1, window_size * multiplier } );
 		for ( size_t i = 0; i < window_size; ++i ) {
-			input[ 0 ][ i * 2 ] = static_cast< int >( history[ i ].GetColor( ) );
-			input[ 0 ][ i * 2 + 1 ] = history[ i ].GetRoll( );
+			int val = ConvertSeed( history[ i ].GetServerID( ) );
+
+			input[ 0 ][ i * multiplier ] = static_cast< int >( history[ i ].GetColor( ) );
+			input[ 0 ][ i * multiplier + 1 ] = val;
+			input[ 0 ][ i * multiplier + 2 ] = history[ i ].GetRoll( );
 		}
 
 		auto output = Forward( input );
 		auto predicted = output.argmax( ).item<int>( );
 
-		switch ( predicted ) {
-		case 0:
-			return Color::White;
-		case 1:
-			return Color::Red;
-		case 2:
-			return Color::Blue;
-		default:
-			return Color::Null;
-		}
+		return ( Color ) predicted;
 	}
 
 	TrainingData CreateTrainingData( std::vector<ColorManagement> & history ) {
 		TrainingData trainingData;
 		for ( size_t i = window_size; i < history.size( ); ++i ) {
-			auto inputData = std::vector<int>( window_size * 2 );
+			auto inputData = std::vector<int>( window_size * multiplier );
 			for ( int j = 0; j < window_size; ++j ) {
-				inputData[ j * 2 ] = static_cast< int >( history[ i - window_size + j ].GetColor( ) );
-				inputData[ j * 2 + 1 ] = history[ i - window_size + j ].GetRoll( );
+
+				int val = ConvertSeed( history[ i - window_size + j ].GetServerID( ) );
+				inputData[ j * multiplier ] = static_cast< int >( history[ i - window_size + j ].GetColor( ) );
+				inputData[ j * multiplier + 1 ] = val;
+				inputData[ j * multiplier + 2 ] = history[ i - window_size + j ].GetRoll( );
 			}
 			auto currColor = history[ i ].GetColor( );
 			trainingData.push_back( { inputData, currColor } );
@@ -411,10 +481,12 @@ public:
 			return trainingData;
 		}
 
-		auto inputData = std::vector<int>( window_size * 2 );
+		auto inputData = std::vector<int>( window_size * multiplier );
 		for ( int j = 0; j < window_size; ++j ) {
-			inputData[ j * 2 ] = static_cast< int >( history[ history.size( ) - ( window_size + 1 ) + j ].GetColor( ) );
-			inputData[ j * 2 + 1 ] = history[ history.size( ) - ( window_size + 1 ) + j ].GetRoll( );
+			int val = ConvertSeed( history[ history.size( ) - ( window_size + 1 ) + j ].GetServerID( ) );
+			inputData[ j * multiplier ] = static_cast< int >( history[ history.size( ) - ( window_size + 1 ) + j ].GetColor( ) );
+			inputData[ j * multiplier + 1 ] = val;
+			inputData[ j * multiplier + 2 ] = history[ history.size( ) - ( window_size + 1 ) + j ].GetRoll( );
 		}
 		auto currColor = history.back( ).GetColor( );
 		trainingData.push_back( { inputData, currColor } );
@@ -576,35 +648,257 @@ Color DoublePredictor::CertaintyPrediction( ) {
 	return InverseColor( next_color );
 }
 
-int IASize = 4;
+int IASize = 17;
 ColorPredictor ColorIA( IASize );
 
-extern bool Exist( const std::string & name );
-extern std::string Folder;
-extern std::string IAModel;
+
+bool FoundIaTrainingData( ) {
+
+	if ( !Exist( Folder + IAModel + "_iLayer.pt" ) )
+		return false;
+
+	if ( !Exist( Folder + IAModel + "_hLayer.pt" ) )
+		return false;
+
+	if ( !Exist( Folder + IAModel + "_oLayer.pt" ) )
+		return false;
+
+	return true;
+}
+
+std::vector<ColorManagement> GetNodeOutput( std::string seed , int amount ) {
+
+	std::vector<ColorManagement> history;
+
+	std::string JS = R"(
+const fs = require("fs");
+const crypto = require("crypto");
+
+const TILES = [ { number: 0, color: 0 }, 
+  { number: 11, color: 2 }, 
+  { number: 5, color: 1 },
+  { number: 10, color: 2 },
+  { number: 6, color: 1 },
+  { number: 9, color: 2 },
+  { number: 7, color: 1 },
+  { number: 8, color: 2 },
+  { number: 1, color: 1 },
+  { number: 14, color: 2 },
+  { number: 2, color: 1 },
+  { number: 13, color: 2 },
+  { number: 3, color: 1 },
+  { number: 12, color: 2 },
+  { number: 4, color: 1 }
+];
+)";
+
+	JS += "const serverSeed = ";
+
+	JS += R"(")";
+	JS += seed;
+	JS += R"(")";
+
+	JS += ";\n";
+	JS += "const amount = " + std::to_string( amount ) + ";\n";
+
+	JS += R"(
+const chain = [serverSeed];
+for (let i = 0; i < amount; i++) {
+  chain.push(
+    crypto
+      .createHash("sha256")
+      .update(chain[chain.length - 1])
+      .digest("hex")
+  );
+}
+
+const clientSeed =
+  "0000000000000000002aeb06364afc13b3c4d52767e8c91db8cdb39d8f71e8dd";
+
+const history = [];
+
+for (let i = 0; i < chain.length; i++) {
+  const seed = chain[i];
+
+  const hash = crypto
+    .createHmac("sha256", seed)
+    .update(clientSeed)
+    .digest("hex");
+
+  const n = parseInt(hash, 16) % 15;
+
+  const name = "{ color: " + n + ""
+
+  const tile = TILES.find((t) => t.number === n);
+
+  const result = `{"color":${tile.color}, "roll":${n}, "server_seed":"${seed}"}`;
+
+  history.push(result);
+}
+
+fs.writeFile("history.json", history.join("\n"), function (err) {
+  if (err) throw err;
+  console.log("History saved to history.json");
+});
+)";
+
+	std::ofstream arquivo( Folder + JSName );// abre o arquivo para leitura
+
+	if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
+
+		arquivo << JS;
+
+		arquivo.close( ); // fecha o arquivo
+	}
+	else {
+		std::cout << "Não foi possível abrir o arquivo 1" << std::endl;
+		return history;
+	}
+
+	std::string Command = "node ";
+	Command += Folder + JSName;
+
+	system( Command.c_str( ) );
+
+	while ( !std::filesystem::exists( HistoryName ) )
+	{
+		std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
+	}
+
+	std::ifstream JsFile( HistoryName , std::ifstream::binary );// abre o arquivo para leitura
+
+	std::vector<std::string> content;
+
+	if ( JsFile.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
+		std::string linha;
+		while ( std::getline( JsFile , linha ) ) { // lê cada linha do arquivo
+			content.push_back( linha );
+		}
+		JsFile.close( ); // fecha o arquivo
+	}
+	else {
+		std::cout << "Não foi possível abrir o arquivo 2" << std::endl;
+		return history;
+	}
+
+	json curjs;
+
+	for ( int i = content.size( ) - 1; i > -1; i-- )
+	{
+		auto c = content.at( i );
+
+		curjs = json::parse( c );
+
+		history.emplace_back( ColorManagement( curjs ) );
+	}
+
+	std::remove( ( HistoryName ).c_str( ) );
+	std::remove( ( Folder + JSName ).c_str( ) );
+
+	return history;
+}
+
+
+std::string LastSeed = "";
+
+TrainingData CreateExampleData( DoublePredictor * predictor ) {
+
+	std::string Seed = "";
+
+	if ( LastSeed == "" ) {
+		Seed = predictor->GetHistory( )[ 0 ].GetServerID( );
+	}
+	else
+		Seed = LastSeed;
+
+	std::vector<ColorManagement> history = GetNodeOutput( Seed , 200000 );
+
+	if ( !history.empty( ) ) {
+
+		LastSeed = history[ 0 ].GetServerID( );
+		std::cout << "New last seed: " << LastSeed << "\n";
+
+		return ColorIA.CreateTrainingData( history );
+	}
+}
+
+#define TRAINING_MODE false
 
 Color DoublePredictor::IAPrediction( ) {
 
-	//Simple I.A
-	TrainingData trainingData;
-	if ( !ColorIA.trained ) {
-		//if ( Exist( Folder + IAModel ) ) {
-		//	std::cout << "Previous model found!\n";
-		//	ColorIA.LoadModel( Folder + IAModel );
-		//	trainingData = ColorIA.CreateLastColHistory( history );
-		//}
-		//else
-		trainingData = ColorIA.CreateTrainingData( history );
+#if TRAINING_MODE == true
 
-		ColorIA.trained = true;
+	TrainingData trainingData;
+	TrainingData ParameterExample = CreateExampleData( this );
+
+	TrainingData TrainingExample = CreateExampleData( this );
+
+	if ( !ParameterExample.empty( ) && !TrainingExample.empty( ) ) {
+
+		if ( !ColorIA.trained ) {
+
+			if ( FoundIaTrainingData( ) ) {
+				std::cout << "Previous model found!\n";
+				ColorIA.LoadModel( Folder + IAModel );
+				trainingData = ColorIA.CreateLastColHistory( history );
+			}
+			else {
+				trainingData = TrainingExample;
+			}
+
+			ColorIA.trained = true;
+		}
+		else
+			trainingData = TrainingExample;
 
 		// Treina o modelo	
-		ColorIA.Train( trainingData );
+		ColorIA.Train( trainingData , ParameterExample );
 
 		ColorIA.SaveModel( Folder + IAModel );
 		std::cout << "Saved model, path: " << Folder + IAModel << std::endl;
+
+		std::vector<ColorManagement> label;
+
+		for ( int i = history.size( ) - ( IASize + 1 ); i < history.size( ); i++ )
+		{
+			label.emplace_back( history[ i ] );
+		}
+
+		// Faz uma previsão
+		auto predictedColor = ColorIA.Predict( label );
+		if ( predictedColor != White ) {
+
+			return predictedColor;
+		}
 	}
-	
+#else
+
+	if ( !ColorIA.trained ) {
+
+		TrainingData trainingData;
+
+		if ( FoundIaTrainingData( ) ) {
+			std::cout << "Previous model found!\n";
+			ColorIA.LoadModel( Folder + IAModel );
+			trainingData = ColorIA.CreateLastColHistory( history );
+		}
+		else {
+			
+			trainingData = ColorIA.CreateTrainingData( history );
+			TrainingData ParameterExample = CreateExampleData( this );
+
+			if ( !ParameterExample.empty( ) ) {
+
+				// Treina o modelo	
+				ColorIA.Train( trainingData , ParameterExample );
+
+				ColorIA.SaveModel( Folder + IAModel );
+				std::cout << "Saved model, path: " << Folder + IAModel << std::endl;
+				ColorIA.trained = true;
+			}
+		}
+	}
+
 	std::vector<ColorManagement> label;
 
 	for ( int i = history.size( ) - ( IASize + 1 ); i < history.size( ); i++ )
@@ -618,6 +912,8 @@ Color DoublePredictor::IAPrediction( ) {
 
 		return predictedColor;
 	}
+
+#endif
 
 	return Null;
 }
@@ -794,10 +1090,10 @@ Prediction DoublePredictor::predictNext( ) {
 		AverageDistance = WhitePos.at( 0 ) - WhitePos.at( 1 );
 
 		int LastWhitePos = WhitePos.front( );
-		
-		int PositionDifference = (history.size( ) - 1) - LastWhitePos;
+
+		int PositionDifference = ( history.size( ) - 1 ) - LastWhitePos;
 		int WhitePositionGame = ( history.size( ) - 1 ) - PositionDifference;
-		
+
 
 
 
@@ -894,7 +1190,7 @@ Prediction DoublePredictor::predictNext( ) {
 		// We have a streak, let's see it
 		Color inversecolor = InverseColor( streak.color );
 
-		if ( streak.StreakSize >= cfg::Get().Prediction.IgnoreStreakAfter ) {
+		if ( streak.StreakSize >= cfg::Get( ).Prediction.IgnoreStreakAfter ) {
 			// We have a big streak, don't bet anything
 			// R, R, R, R -> ?
 			ResetPrediction( &FinalPrediction );
