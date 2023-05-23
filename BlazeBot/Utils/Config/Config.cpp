@@ -301,6 +301,7 @@ void AddVars( ) {
 		std::vector<std::string> bTypeClass = { BETTING_CLASS, Type };
 
 		Add( &cfg::Get( ).Betting.type[i].MultiplyBet , B , "MultiplyBet" , bTypeClass );
+		Add( &cfg::Get( ).Betting.type[ i ].IncrementMinimum , B , "IncrementMinimum" , bTypeClass );
 		Add( &cfg::Get( ).Betting.type[ i ].ResetIfDifferent , B , "ResetIfDifferent" , bTypeClass );
 		Add( &cfg::Get( ).Betting.type[ i ].BetMultiplier , F , "BetMultiplier" , bTypeClass );
 		Add( &cfg::Get( ).Betting.type[ i ].MultiplyAfterX ,I , "MultiplyAfterX" , bTypeClass );
@@ -323,6 +324,7 @@ void AddVars( ) {
 	std::vector<std::string> bGameClass = { GAME_CLASS };
 
 	Add( &cfg::Get( ).Game.BalanceHistory , V , "BalanceHistory" , bGameClass );
+	Add( &cfg::Get( ).Game.FullBalanceHistory , V , "FullBalanceHistory" , bGameClass );
 	Add( &cfg::Get( ).Game.InitialBalance , F, "InitialBalance" , bGameClass );
 	Add( &cfg::Get( ).Game.CurrentBalance , F , "CurrentBalance" , bGameClass );
 

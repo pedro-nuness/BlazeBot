@@ -150,6 +150,7 @@ void save_cfg( bool read ) {
 			betManager.CurrentPlayer = Player( cfg::Get( ).Game.InitialBalance );
 			betManager.CurrentPlayer.SetBalance( cfg::Get( ).Game.CurrentBalance );
 			betManager.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
+			betManager.FullBalanceHistory = cfg::Get( ).Game.FullBalanceHistory;
 
 			betManager.SetRedPosition( TransformVec( cfg::Get( ).Betting.automatic.RedPoint ) );
 			betManager.SetBlackPosition( TransformVec( cfg::Get( ).Betting.automatic.BlackPoint ) );
@@ -415,6 +416,7 @@ int main( int , char ** )
 			ImGui::Checkbox( "Accurracy Window" , &cfg::Get( ).Windows.AccurracyWindow );
 
 			ImGui::Checkbox( "Balance graph" , &cfg::Get( ).Windows.BalanceWindow );
+			ImGui::Checkbox( "Full Balance graph" , &cfg::Get( ).Windows.FullGraph );
 
 			ImGui::Checkbox( "Betting Options" , &cfg::Get( ).Windows.ShowBetsWindow );
 
@@ -459,6 +461,9 @@ int main( int , char ** )
 						case GENERAL:
 							Method += " ( GENERAL )";
 							break;
+						//case LOGIC:
+						//	Method += " ( LOGIC )";
+						//	break;
 						default:
 							Method += " ( NONE )";
 							break;
@@ -494,12 +499,14 @@ int main( int , char ** )
 						std::string Roll = "Roll" + Method + ": " + std::to_string( BeatsSeparated.GetRollLosesAmount( ) );
 						std::string MaxRoll = "Max Roll" + Method + ": " + std::to_string( BeatsSeparated.GetMaximumRollLoseAmount( ) );
 						std::string MedRoll = "Med Roll" + Method + ": " + std::to_string( BeatsSeparated.GetMediumRollLoseAmount( ) );
+						std::string RollDistance = "Roll Distance" + Method + ": " + std::to_string( BeatsSeparated.DistanceBetweenRolls( ) );
 
 						ImGui::Text( Hits.c_str( ) );
 						ImGui::Text( Total.c_str( ) );
 						ImGui::Text( Roll.c_str( ) );
 						ImGui::Text( MaxRoll.c_str( ) );
 						ImGui::Text( MedRoll.c_str( ) );
+						ImGui::Text( RollDistance.c_str( ) );
 						ImGui::NewLine( );
 					}
 				}
@@ -554,6 +561,9 @@ int main( int , char ** )
 				case GENERAL:
 					PredColor += " ( GENERAL )";
 					break;
+				//case LOGIC:
+				//	PredColor += " ( LOGIC )";
+				//	break;
 				default:
 					PredColor += " ( NONE )";
 					break;
@@ -666,6 +676,24 @@ int main( int , char ** )
 				ImGui::End( );
 			}
 
+
+			if ( cfg::Get( ).Windows.BalanceWindow ) {
+				// iterate over the array using the pointer
+
+				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
+				ImGui::Begin( "Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+
+				//PlotLines( const char * label , const float * values ,
+				//int values_count , int values_offset = 0 , 
+				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
+				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
+
+				ImGui::PlotLines( "##fullgraph" , betManager.FullBalanceHistory.data( ) , betManager.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+
+				ImGui::End( );
+			}
+
+
 			if ( cfg::Get( ).Windows.ShowBetsWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 450 , 280 ) );
 				ImGui::Begin( "Betting Options" , NULL , ImGuiWindowFlags_NoResize );
@@ -695,6 +723,7 @@ int main( int , char ** )
 						ImGui::SliderFloat( std::string( "Multiplier" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].BetMultiplier , 0 , 300 );
 						ImGui::SliderInt( std::string( "Max Times" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].MaxMultiplierTimes , 0 , 10 );
 						ImGui::SliderInt( std::string( "Multiply after" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].MultiplyAfterX , 0 , 10 );
+						ImGui::Checkbox( std::string( "Increment Minimum" + type ).c_str( ) , &cfg::Get( ).Betting.type[ i ].IncrementMinimum );
 
 						if ( i == LOSE )
 						{

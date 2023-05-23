@@ -137,7 +137,9 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BetManagement\Beats\Beats.h" />
     <ClInclude Include="BetManagement\BetManagement.h" />
+    <ClInclude Include="BetManagement\Player\Player.h" />
     <ClInclude Include="Colors\ColorManagement\ColorManagement.h" />
     <ClInclude Include="Colors\Colors.h" />
     <ClInclude Include="ImGui\imconfig.h" />
@@ -149,13 +151,16 @@
     <ClInclude Include="ImGui\imstb_textedit.h" />
     <ClInclude Include="ImGui\imstb_truetype.h" />
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="Predictor\IA\IA.h" />
     <ClInclude Include="Predictor\Predictor.h" />
     <ClInclude Include="Utils\Config\Config.h" />
     <ClInclude Include="Utils\Singleton.h" />
     <ClInclude Include="Utils\Utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BetManagement\Beats\Beats.cpp" />
     <ClCompile Include="BetManagement\BetManagement.cpp" />
+    <ClCompile Include="BetManagement\Player\Player.cpp" />
     <ClCompile Include="Colors\ColorManagement\ColorManagement.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
     <ClCompile Include="ImGui\imgui_demo.cpp" />
@@ -165,6 +170,7 @@
     <ClCompile Include="ImGui\imgui_tables.cpp" />
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Predictor\IA\IA.cpp" />
     <ClCompile Include="Predictor\Predictor.cpp" />
     <ClCompile Include="Utils\Config\Config.cpp" />
     <ClCompile Include="Utils\Utils.cpp" />

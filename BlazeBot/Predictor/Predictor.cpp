@@ -2,6 +2,7 @@
 #include <torch/script.h>
 #include "Predictor.h"
 #include <numeric>
+#include "IA\IA.h"
 
 #include "..\Utils\Config\Config.h"
 
@@ -304,211 +305,6 @@ void ResetPrediction( Prediction * pred ) {
 	pred->PossibleWhite = false;
 }
 
-#define SHA256_DIGEST_LENGTH 32
-
-int ConvertSeed( std::string seed ) {
-
-	std::string nSedd = seed.substr( 0 , 16 );
-
-	std::stringstream ss;
-	for ( int i = 0; i < SHA256_DIGEST_LENGTH; ++i ) {
-		ss << std::hex << static_cast< int >( seed[ i ] );
-		if ( i >= 4 )
-			break;
-	}
-	std::string hashHex = ss.str( );
-
-	return std::stoull( hashHex , nullptr , 16 );
-}
-
-
-// Define o tipo de dado do conjunto de treinamento
-using TrainingData = std::vector<std::pair<std::vector<int> , Color>>;
-
-class ColorPredictor {
-private:
-	torch::nn::Linear inputLayer { nullptr };
-	torch::nn::Linear hiddenLayer { nullptr };
-	torch::nn::Linear outputLayer { nullptr };
-	int window_size = 4;
-	int multiplier = 3;
-
-public:
-
-	bool trained = false;
-
-	ColorPredictor( int window_size = 4 ) {
-		this->window_size = window_size;
-		inputLayer = torch::nn::Linear( torch::nn::LinearOptions( window_size * multiplier , 32 ) );
-		hiddenLayer = torch::nn::Linear( torch::nn::LinearOptions( 32 , 16 ) );
-		outputLayer = torch::nn::Linear( torch::nn::LinearOptions( 16 , 3 ) );
-	}
-
-	void SaveModel( const std::string & file_path ) {
-		torch::serialize::OutputArchive output_iLayer;
-		torch::serialize::OutputArchive output_hLayer;
-		torch::serialize::OutputArchive output_oLayer;
-
-		inputLayer->save( output_iLayer );
-		hiddenLayer->save( output_hLayer );
-		outputLayer->save( output_oLayer );
-
-
-		output_iLayer.save_to( file_path + "_iLayer.pt" );
-		output_hLayer.save_to( file_path + "_hLayer.pt" );
-		output_oLayer.save_to( file_path + "_oLayer.pt" );
-	}
-
-	void LoadModel( const std::string & file_path ) {
-
-		torch::serialize::InputArchive input_iLayer;
-		torch::serialize::InputArchive input_hLayer;
-		torch::serialize::InputArchive input_oLayer;
-
-		input_iLayer.load_from( file_path + "_iLayer.pt" );
-		input_hLayer.load_from( file_path + "_hLayer.pt" );
-		input_oLayer.load_from( file_path + "_oLayer.pt" );
-
-		inputLayer->load( input_iLayer );
-		hiddenLayer->load( input_hLayer );
-		outputLayer->load( input_oLayer );
-	}
-
-	void Train( const TrainingData & trainingData , const TrainingData & validationData ) {
-		// Verificar se a GPU (CUDA) está disponível e selecionar o dispositivo
-		torch::Device device = torch::cuda::is_available( ) ? torch::kCUDA : torch::kCPU;
-
-		// Mover o modelo para o dispositivo selecionado (GPU, se disponível)
-		inputLayer->to( device );
-
-		double min_validation_loss = std::numeric_limits<double>::max( );
-		int epochs_no_improve = 0;
-		int n_epochs_stop = 1; // número de épocas para parar o treinamento se não houver melhora
-
-		torch::optim::Adam optimizer( inputLayer->parameters( ) , torch::optim::AdamOptions( 0.001 ) );
-		torch::nn::CrossEntropyLoss lossFunction {};
-
-		for ( size_t epoch = 0; epoch < 200; ++epoch ) {
-			optimizer.zero_grad( );
-			auto inputs = torch::empty( { static_cast< int >( trainingData.size( ) ), window_size * multiplier } ).to( device );
-			auto targets = torch::empty( static_cast< int >( trainingData.size( ) ) , torch::TensorOptions( ).dtype( torch::kLong ) ).to( device );
-
-			for ( size_t i = 0; i < trainingData.size( ); ++i ) {
-				for ( size_t j = 0; j < window_size * multiplier; ++j ) {
-					inputs[ i ][ j ] = trainingData[ i ].first[ j ];
-				}
-				targets[ i ] = static_cast< int >( trainingData[ i ].second );
-			}
-
-			auto output = Forward( inputs );
-			auto loss = lossFunction( output , targets );
-			loss.backward( );
-			optimizer.step( );
-
-			std::cout << "Epoch: " << epoch << ", Loss: " << int( loss.item<double>( ) ) << std::endl;
-
-
-			// validate the model
-			auto val_inputs = torch::empty( { static_cast< int >( validationData.size( ) ), window_size * multiplier } ).to( device );
-			auto val_targets = torch::empty( static_cast< int >( validationData.size( ) ) , torch::TensorOptions( ).dtype( torch::kLong ) ).to( device );
-			for ( size_t i = 0; i < validationData.size( ); ++i ) {
-				for ( size_t j = 0; j < window_size * multiplier; ++j ) {
-					val_inputs[ i ][ j ] = validationData[ i ].first[ j ];
-				}
-				val_targets[ i ] = static_cast< int >( validationData[ i ].second );
-			}
-			auto val_output = Forward( val_inputs );
-			auto val_loss = lossFunction( val_output , val_targets );
-
-			std::cout << "Validation of Epoch: " << epoch << ", Loss: " << int( val_loss.item<double>( ) ) << std::endl;
-
-
-			// check for improvement
-			if ( val_loss.item<double>( ) < min_validation_loss ) {
-				min_validation_loss = val_loss.item<double>( );
-				epochs_no_improve = 0;
-			}
-			else {
-				epochs_no_improve++;
-				if ( epochs_no_improve == n_epochs_stop ) {
-					std::cout << "Early stopping!" << std::endl;
-					break; // early stop
-				}
-			}
-		}
-	}
-
-	// Faz uma previsão com base em uma cor e um rolo
-	Color Predict( std::vector<ColorManagement> history ) {
-
-		auto input = torch::empty( { 1, window_size * multiplier } );
-		for ( size_t i = 0; i < window_size; ++i ) {
-			int val = ConvertSeed( history[ i ].GetServerID( ) );
-
-			input[ 0 ][ i * multiplier ] = static_cast< int >( history[ i ].GetColor( ) );
-			input[ 0 ][ i * multiplier + 1 ] = val;
-			input[ 0 ][ i * multiplier + 2 ] = history[ i ].GetRoll( );
-		}
-
-		auto output = Forward( input );
-		auto predicted = output.argmax( ).item<int>( );
-
-		return ( Color ) predicted;
-	}
-
-	TrainingData CreateTrainingData( std::vector<ColorManagement> & history ) {
-		TrainingData trainingData;
-		for ( size_t i = window_size; i < history.size( ); ++i ) {
-			auto inputData = std::vector<int>( window_size * multiplier );
-			for ( int j = 0; j < window_size; ++j ) {
-
-				int val = ConvertSeed( history[ i - window_size + j ].GetServerID( ) );
-				inputData[ j * multiplier ] = static_cast< int >( history[ i - window_size + j ].GetColor( ) );
-				inputData[ j * multiplier + 1 ] = val;
-				inputData[ j * multiplier + 2 ] = history[ i - window_size + j ].GetRoll( );
-			}
-			auto currColor = history[ i ].GetColor( );
-			trainingData.push_back( { inputData, currColor } );
-		}
-		return trainingData;
-	}
-
-
-	TrainingData CreateLastColHistory( std::vector<ColorManagement> & history ) {
-		TrainingData trainingData;
-
-		if ( history.size( ) < window_size + 1 ) {
-			return trainingData;
-		}
-
-		auto inputData = std::vector<int>( window_size * multiplier );
-		for ( int j = 0; j < window_size; ++j ) {
-			int val = ConvertSeed( history[ history.size( ) - ( window_size + 1 ) + j ].GetServerID( ) );
-			inputData[ j * multiplier ] = static_cast< int >( history[ history.size( ) - ( window_size + 1 ) + j ].GetColor( ) );
-			inputData[ j * multiplier + 1 ] = val;
-			inputData[ j * multiplier + 2 ] = history[ history.size( ) - ( window_size + 1 ) + j ].GetRoll( );
-		}
-		auto currColor = history.back( ).GetColor( );
-		trainingData.push_back( { inputData, currColor } );
-
-		return trainingData;
-	}
-
-
-
-private:
-	// Executa o passo para frente da rede neural
-	torch::Tensor Forward( torch::Tensor input ) {
-		auto x = torch::relu( inputLayer->forward( input ) );
-		x = torch::relu( hiddenLayer->forward( x ) );
-		x = outputLayer->forward( x );
-		return torch::log_softmax( x , 1 );
-	}
-
-};
-
-
-
 double DoublePredictor::getCertainty( Color c ) {
 	if ( history.empty( ) ) {
 		return 0.0;
@@ -651,177 +447,6 @@ Color DoublePredictor::CertaintyPrediction( ) {
 int IASize = 17;
 ColorPredictor ColorIA( IASize );
 
-
-bool FoundIaTrainingData( ) {
-
-	if ( !Exist( Folder + IAModel + "_iLayer.pt" ) )
-		return false;
-
-	if ( !Exist( Folder + IAModel + "_hLayer.pt" ) )
-		return false;
-
-	if ( !Exist( Folder + IAModel + "_oLayer.pt" ) )
-		return false;
-
-	return true;
-}
-
-std::vector<ColorManagement> GetNodeOutput( std::string seed , int amount ) {
-
-	std::vector<ColorManagement> history;
-
-	std::string JS = R"(
-const fs = require("fs");
-const crypto = require("crypto");
-
-const TILES = [ { number: 0, color: 0 }, 
-  { number: 11, color: 2 }, 
-  { number: 5, color: 1 },
-  { number: 10, color: 2 },
-  { number: 6, color: 1 },
-  { number: 9, color: 2 },
-  { number: 7, color: 1 },
-  { number: 8, color: 2 },
-  { number: 1, color: 1 },
-  { number: 14, color: 2 },
-  { number: 2, color: 1 },
-  { number: 13, color: 2 },
-  { number: 3, color: 1 },
-  { number: 12, color: 2 },
-  { number: 4, color: 1 }
-];
-)";
-
-	JS += "const serverSeed = ";
-
-	JS += R"(")";
-	JS += seed;
-	JS += R"(")";
-
-	JS += ";\n";
-	JS += "const amount = " + std::to_string( amount ) + ";\n";
-
-	JS += R"(
-const chain = [serverSeed];
-for (let i = 0; i < amount; i++) {
-  chain.push(
-    crypto
-      .createHash("sha256")
-      .update(chain[chain.length - 1])
-      .digest("hex")
-  );
-}
-
-const clientSeed =
-  "0000000000000000002aeb06364afc13b3c4d52767e8c91db8cdb39d8f71e8dd";
-
-const history = [];
-
-for (let i = 0; i < chain.length; i++) {
-  const seed = chain[i];
-
-  const hash = crypto
-    .createHmac("sha256", seed)
-    .update(clientSeed)
-    .digest("hex");
-
-  const n = parseInt(hash, 16) % 15;
-
-  const name = "{ color: " + n + ""
-
-  const tile = TILES.find((t) => t.number === n);
-
-  const result = `{"color":${tile.color}, "roll":${n}, "server_seed":"${seed}"}`;
-
-  history.push(result);
-}
-
-fs.writeFile("history.json", history.join("\n"), function (err) {
-  if (err) throw err;
-  console.log("History saved to history.json");
-});
-)";
-
-	std::ofstream arquivo( Folder + JSName );// abre o arquivo para leitura
-
-	if ( arquivo.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
-
-		arquivo << JS;
-
-		arquivo.close( ); // fecha o arquivo
-	}
-	else {
-		std::cout << "Não foi possível abrir o arquivo 1" << std::endl;
-		return history;
-	}
-
-	std::string Command = "node ";
-	Command += Folder + JSName;
-
-	system( Command.c_str( ) );
-
-	while ( !std::filesystem::exists( HistoryName ) )
-	{
-		std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
-	}
-
-	std::ifstream JsFile( HistoryName , std::ifstream::binary );// abre o arquivo para leitura
-
-	std::vector<std::string> content;
-
-	if ( JsFile.is_open( ) ) { // verifica se o arquivo foi aberto com sucesso
-		std::string linha;
-		while ( std::getline( JsFile , linha ) ) { // lê cada linha do arquivo
-			content.push_back( linha );
-		}
-		JsFile.close( ); // fecha o arquivo
-	}
-	else {
-		std::cout << "Não foi possível abrir o arquivo 2" << std::endl;
-		return history;
-	}
-
-	json curjs;
-
-	for ( int i = content.size( ) - 1; i > -1; i-- )
-	{
-		auto c = content.at( i );
-
-		curjs = json::parse( c );
-
-		history.emplace_back( ColorManagement( curjs ) );
-	}
-
-	std::remove( ( HistoryName ).c_str( ) );
-	std::remove( ( Folder + JSName ).c_str( ) );
-
-	return history;
-}
-
-
-std::string LastSeed = "";
-
-TrainingData CreateExampleData( DoublePredictor * predictor ) {
-
-	std::string Seed = "";
-
-	if ( LastSeed == "" ) {
-		Seed = predictor->GetHistory( )[ 0 ].GetServerID( );
-	}
-	else
-		Seed = LastSeed;
-
-	std::vector<ColorManagement> history = GetNodeOutput( Seed , 200000 );
-
-	if ( !history.empty( ) ) {
-
-		LastSeed = history[ 0 ].GetServerID( );
-		std::cout << "New last seed: " << LastSeed << "\n";
-
-		return ColorIA.CreateTrainingData( history );
-	}
-}
-
 #define TRAINING_MODE false
 
 Color DoublePredictor::IAPrediction( ) {
@@ -829,53 +454,8 @@ Color DoublePredictor::IAPrediction( ) {
 #if TRAINING_MODE == true
 
 	TrainingData trainingData;
-	TrainingData ParameterExample = CreateExampleData( this );
-
-	TrainingData TrainingExample = CreateExampleData( this );
-
-	if ( !ParameterExample.empty( ) && !TrainingExample.empty( ) ) {
-
-		if ( !ColorIA.trained ) {
-
-			if ( FoundIaTrainingData( ) ) {
-				std::cout << "Previous model found!\n";
-				ColorIA.LoadModel( Folder + IAModel );
-				trainingData = ColorIA.CreateLastColHistory( history );
-			}
-			else {
-				trainingData = TrainingExample;
-			}
-
-			ColorIA.trained = true;
-		}
-		else
-			trainingData = TrainingExample;
-
-		// Treina o modelo	
-		ColorIA.Train( trainingData , ParameterExample );
-
-		ColorIA.SaveModel( Folder + IAModel );
-		std::cout << "Saved model, path: " << Folder + IAModel << std::endl;
-
-		std::vector<ColorManagement> label;
-
-		for ( int i = history.size( ) - ( IASize + 1 ); i < history.size( ); i++ )
-		{
-			label.emplace_back( history[ i ] );
-		}
-
-		// Faz uma previsão
-		auto predictedColor = ColorIA.Predict( label );
-		if ( predictedColor != White ) {
-
-			return predictedColor;
-		}
-	}
-#else
 
 	if ( !ColorIA.trained ) {
-
-		TrainingData trainingData;
 
 		if ( FoundIaTrainingData( ) ) {
 			std::cout << "Previous model found!\n";
@@ -883,9 +463,57 @@ Color DoublePredictor::IAPrediction( ) {
 			trainingData = ColorIA.CreateLastColHistory( history );
 		}
 		else {
-			
 			trainingData = ColorIA.CreateTrainingData( history );
-			TrainingData ParameterExample = CreateExampleData( this );
+		}
+
+		ColorIA.trained = true;
+	}
+	else {
+
+		TrainingData TrainingExample = CreateExampleData( this );
+
+		trainingData = TrainingExample;
+
+	}
+
+	TrainingData ParameterExample = CreateExampleData( this );
+
+	if ( !trainingData.empty( ) && !ParameterExample.empty( ) )
+		// Treina o modelo	
+		ColorIA.Train( trainingData , ParameterExample );
+
+	ColorIA.SaveModel( Folder + IAModel );
+	std::cout << "Saved model, path: " << Folder + IAModel << std::endl;
+
+	std::vector<ColorManagement> label;
+
+	for ( int i = history.size( ) - ( IASize + 1 ); i < history.size( ); i++ )
+	{
+		label.emplace_back( history[ i ] );
+	}
+
+	// Faz uma previsão
+	auto predictedColor = ColorIA.Predict( label );
+	if ( predictedColor != White ) {
+
+		return predictedColor;
+	}
+
+#else
+
+	if ( !ColorIA.trained ) {
+
+		TrainingData trainingData;
+
+		if ( ColorIA.TraningExist( ) ) {
+			std::cout << "Previous model found!\n";
+			ColorIA.LoadModel( Folder + IAModel );
+			ColorIA.trained = true;
+		}
+		else {
+
+			trainingData = ColorIA.CreateTrainingData( history );
+			TrainingData ParameterExample = ColorIA.CreateExampleData( this->history );
 
 			if ( !ParameterExample.empty( ) ) {
 
@@ -918,53 +546,265 @@ Color DoublePredictor::IAPrediction( ) {
 	return Null;
 }
 
+int findMostFrequent( std::vector<int> & nums ) {
+	std::unordered_map<int , int> freqMap;
+
+	// Conta a frequência de cada número no vetor.
+	for ( int num : nums ) {
+		freqMap[ num ]++;
+	}
+
+	int mostFrequentNum = 0;
+	int maxFreq = 0;
+
+	// Encontra o número com a maior frequência.
+	for ( auto & p : freqMap ) {
+		if ( p.second > maxFreq ) {
+			maxFreq = p.second;
+			mostFrequentNum = p.first;
+		}
+	}
+
+	// Retorna o número com a maior frequência.
+	return mostFrequentNum;
+}
+
+Color DoublePredictor::StreakSolve( ) {
+
+	//Historico presente no site da blaze, ultima jogadas
+	Transition GameTransition = GetGameTransition( );
+
+	Streak streak = isStreak( );
+
+	int Points[ 2 ];
+
+	if ( streak.StreakSize >= 2 && streak.color != White )
+	{
+		for ( int i = history.size( ) - 1; i > history.size( ) - 15; i-- ) {
+
+			switch ( history[ i ].GetColor( ) )
+			{
+			case Red:
+				Points[ Red ]++;
+				break;
+			case  Blue:
+				Points[ Blue ]++;
+				break;
+			}
+		}
+
+		if ( Points[ streak.color ] >= 9 )
+		{
+			return streak.color;
+		}
+		else if ( Points[ InverseColor( streak.color ) ] >= 9 )
+		{
+			return InverseColor( streak.color );
+		}
+	}
+
+	return Null;
+
+
+	//Streak BeforeStreak = isStreak( streak.StreakSize );
+	//if ( streak.StreakSize >= 2 ) {
+	//	// We have a streak, let's see it
+	//	Color inversecolor = InverseColor( streak.color );
+	//
+	//	if ( streak.StreakSize >= cfg::Get( ).Prediction.IgnoreStreakAfter ) {
+	//		// We have a big streak, don't bet anything
+	//		// R, R, R, R -> ?
+	//		return Null;
+	//	}
+	//	else {
+	//
+	//		static int StartPos = 0;
+	//
+	//		if ( streak.StreakSize == 2 )
+	//			StartPos = 0;
+	//
+	//		Color OldColor = Null;
+	//		std::vector<int> PresentStreaks;
+	//		int Size;
+	//		//Get Most Present Streak size
+	//		for ( int i = GameTransition.Colors.size( ) - streak.StreakSize + 1; i > 0; i-- )
+	//		{
+	//			auto color = GameTransition.Colors.at( i );
+	//
+	//			if ( OldColor != Null )
+	//			{
+	//				if ( color == OldColor ) {
+	//					Size++;
+	//				}
+	//				else if ( Size ) {
+	//					PresentStreaks.emplace_back( Size + 1 );
+	//					Size = 0;
+	//				}
+	//			}
+	//
+	//			OldColor = color;
+	//		}
+	//
+	//		if ( !PresentStreaks.empty( ) )
+	//		{
+	//			int MostPresentStreak = findMostFrequent( PresentStreaks );
+	//
+	//			if ( MostPresentStreak >= 2 ) {
+	//
+	//				std::cout << "Streak BetPos: " << MostPresentStreak << std::endl;
+	//
+	//				// Small streak, try inverse color every 2 streaks
+	//				// R, R -> B, R, R, R, R -> B
+	//				if ( streak.StreakSize == StartPos + MostPresentStreak )
+	//				{
+	//					if ( inversecolor != Null ) {
+	//						StartPos = streak.StreakSize;
+	//
+	//						return inversecolor;
+	//					}
+	//
+	//				}
+	//			}
+	//		}
+	//
+	//		return Null;
+	//	}
+	//}
+	//else if ( BeforeStreak.StreakSize >= 4 )
+	//{
+	//
+	//
+	//}
+}
+
+
 Color DoublePredictor::SearchPattern( int window_size )
 {
 	if ( history.size( ) >= window_size * 5 ) {
 
+		std::vector<bool> Matches;
+
 		std::vector<Color> LastThree;
-		for ( int i = history.size( ) - window_size; i < history.size( ); i++ ) {
-			LastThree.emplace_back( history.at( i ).GetColor( ) );
+
+		for ( int i = history.size( ) - window_size; i < history.size( ); i++ )
+		{
+			if ( history[ i ].GetColor( ) == White )
+				return Null;
+
+			LastThree.emplace_back( history[ i ].GetColor( ) );
 		}
 
-		std::vector<Color> Predictions;
+		int Presence[ 2 ];
+		bool Correpondente[ 3 ];
 
-		int Match = 0;
-		for ( int i = history.size( ) - 19; i < history.size( ) - window_size; i++ )
+
+		for ( auto col : LastThree )
 		{
-			auto col = history.at( i ).GetColor( );
+			Presence[ ( int ) col ] ++;
+		}
 
-			if ( Match == LastThree.size( ) )
+		if ( Presence[ Red ] > Presence[ Blue ] )
+		{
+			Correpondente[ Red ] = true;
+			Correpondente[ Blue ] = false;
+		}
+		else if ( Presence[ Blue ] > Presence[ Red ] )
+		{
+			Correpondente[ Blue ] = true;
+			Correpondente[ Red ] = false;
+		}
+
+		for ( auto col : LastThree )
+		{
+			Matches.emplace_back( Correpondente[ ( int ) col ] );
+		}
+
+		std::vector<bool> Predictions;
+
+
+		std::vector<std::pair<std::vector<bool> , bool>> Pairs;
+
+		for ( int i = history.size( ) - 13; i < history.size( ) - window_size; i++ )
+		{
+			std::vector<int> Three;
+
+			if ( history[ i - 2 ].GetColor( ) != White ) {
+				Three.emplace_back( history[ i - 2 ].GetColor( ) );
+			}
+			else
+				continue;
+
+			if ( history[ i - 1 ].GetColor( ) != White ) {
+				Three.emplace_back( history[ i - 1 ].GetColor( ) );
+			}
+			else
+				continue;
+
+			if ( history[ i  ].GetColor( ) != White ) {
+				Three.emplace_back( history[ i  ].GetColor( ) );
+			}
+			else
+				continue;
+
+			int ColorPresence[ 2 ];
+			bool Respective[ 3];
+			
+			for ( auto col : Three )
 			{
-				Predictions.emplace_back( col );
-				Match = 0;
+				ColorPresence[ col ]++;
+			}
+			
+			std::vector<bool> ThreeM;
+			if ( ColorPresence[ Red ] > ColorPresence[ Blue ] )
+			{
+				Respective[ Red ] = true;
+				Respective[ Blue ] = false;
+			}
+			else if ( ColorPresence[ Blue ] > ColorPresence[ Red ] )
+			{
+				Respective[ Blue ] = true;
+				Respective[ Red ] = false;
+			}
+			
+			for ( auto col : Three )
+			{
+				ThreeM.emplace_back( Respective[ col ] );
 			}
 
-			if ( col == LastThree.at( Match ) )
-				Match++;
-			else
-				Match = 0;
+			if ( history[ i + 1 ].GetColor( ) != White ) {
+
+				Pairs.emplace_back( ThreeM , Respective[ history[ i + 1 ].GetColor( ) ] );
+			}
+		}
+
+		if ( Pairs.empty( ) )
+			return Null;
+
+		for ( auto pair : Pairs )
+		{
+			if ( pair.first == Matches )
+			{
+				//Equal Sequence
+				Predictions.emplace_back( pair.second );
+			}
 		}
 
 		if ( !Predictions.empty( ) ) {
 
-			float RedPresence = 0;
-			float BlackPresence = 0;
+			int Votes[ 3 ];
 
-			for ( auto Pred : Predictions )
+			for ( auto prediction : Predictions )
 			{
-				if ( Pred == Red )
-					RedPresence++;
-				else if ( Pred == Blue )
-					BlackPresence++;
+				if ( Correpondente[ Red ] == prediction )
+					Votes[ Red ]++;
+				else if ( Correpondente[ Blue ] == prediction )
+					Votes[ Blue ]++;
 			}
 
-			if ( RedPresence > BlackPresence ) {
+			if ( Votes[ Red ] > Votes[ Blue ] )
 				return Red;
-			}
-			else if ( BlackPresence > RedPresence ) {
+			else if ( Votes[ Blue ] > Votes[ Red ] )
 				return Blue;
-			}
 		}
 	}
 
@@ -1009,32 +849,103 @@ Color DoublePredictor::PredictSequence( )
 }
 
 
-int findMostFrequent( std::vector<int> & nums ) {
-	std::unordered_map<int , int> freqMap;
 
-	// Conta a frequência de cada número no vetor.
-	for ( int num : nums ) {
-		freqMap[ num ]++;
-	}
+Color DoublePredictor::PredictLogic( ) {
 
-	int mostFrequentNum = 0;
-	int maxFreq = 0;
+	std::vector<Color> Last7;
+	int RedPresence = 0;
+	int BlackPresence = 0;
 
-	// Encontra o número com a maior frequência.
-	for ( auto & p : freqMap ) {
-		if ( p.second > maxFreq ) {
-			maxFreq = p.second;
-			mostFrequentNum = p.first;
+	for ( int i = history.size( ) - 1; i > history.size( ) - 8; i-- )
+	{
+		Color col = history[ i ].GetColor( );
+
+		switch ( col )
+		{
+		case Red:
+			RedPresence++;
+			break;
+		case Blue:
+			BlackPresence++;
+			break;
+		default:
+			return Null;
+			break;
 		}
 	}
 
-	// Retorna o número com a maior frequência.
-	return mostFrequentNum;
+	if ( RedPresence > BlackPresence )
+		return Blue;
+	else
+		return Red;
+}
+
+void DoublePredictor::SetupVote( Color c , int ID ) {
+
+	std::string Name;
+
+	switch ( ID )
+	{
+	case SEQUENCE:
+		Name = "SEQUENCE";
+		break;
+	case IA:
+		Name = "IA";
+		break;
+	case FOUND_PATTERN:
+		Name = "PATTERN";
+		break;
+	case CERTAINTY:
+		Name = "MATH";
+		break;
+	case STREAK:
+		Name = "STREAK";
+		break;
+		//case LOGIC:
+		//	Name = "LOGIC";
+		//	break;
+	}
+
+	if ( c != Null )
+	{
+		if ( SeparatedBeats.empty( ) ) {
+			if ( c == Red ) {
+				RedPoints++;
+				std::cout << Name << " vote: red\n";
+			}
+			else if ( c == Blue ) {
+				BlackPoints++;
+				std::cout << Name << " vote: black\n";
+			}
+		}
+		else if ( !SeparatedBeats[ ID ].OnBadTrip( ) )
+		{
+			if ( c == Red ) {
+				RedPoints++;
+				std::cout << Name << " vote: red\n";
+			}
+			else if ( c == Blue ) {
+				BlackPoints++;
+				std::cout << Name << " vote: black\n";
+			}
+		}
+		else {
+			std::cout << Name << " is on a bad trip!\n";
+		}
+
+		SeparatedPrediction[ ID ] = c;
+	}
+	else {
+		std::cout << Name << " didn't voted!\n";
+	}
+
 }
 
 Prediction DoublePredictor::predictNext( ) {
 
 	Prediction FinalPrediction;
+	RedPoints = 0;
+	BlackPoints = 0;
 	ResetPrediction( &FinalPrediction );
 	FinalPrediction.PossibleWhite = false;
 
@@ -1094,10 +1005,7 @@ Prediction DoublePredictor::predictNext( ) {
 		int PositionDifference = ( history.size( ) - 1 ) - LastWhitePos;
 		int WhitePositionGame = ( history.size( ) - 1 ) - PositionDifference;
 
-
-
-
-		if ( LastWhitePos != -1 && AverageDistance >= 3 ) {
+		if ( LastWhitePos != -1 && AverageDistance >= 1 ) {
 
 			int NextWhitePos = LastWhitePos + AverageDistance;
 			int ProbablyNextWhite = NextWhitePos - history.size( );
@@ -1118,7 +1026,40 @@ Prediction DoublePredictor::predictNext( ) {
 			}
 		}
 	}
+	else if ( WhitePos.size( ) )
+	{
+		//We have at least one white
+		int LastWhitePos = -1;
 
+		for ( int i = WhitePos[ 0 ]; i > 0; i-- )
+		{
+			if ( history[ i ].GetColor( ) == White )
+			{
+				LastWhitePos = i;
+				break;
+			}
+		}
+
+		int Diff = fabs( WhitePos[ 0 ] - LastWhitePos );
+		if ( Diff <= 16 && Diff >= 1 )
+		{
+			//We had two whites
+			int NextWhitePos = WhitePos[ 0 ] + Diff;
+			int ProbablyNextWhite = NextWhitePos - history.size( );
+
+			std::cout << "Average WhiteDistance: " << Diff << std::endl;
+			std::cout << "NextWhitePos: " << NextWhitePos << std::endl;
+			std::cout << "CurrentPos: " << history.size( ) << std::endl;
+			std::cout << "Probably next white in: " << ProbablyNextWhite << std::endl;
+
+			if ( ( history.size( ) ) >= NextWhitePos - WindowTrying
+				&& ( history.size( ) ) <= NextWhitePos + WindowTrying
+				) {
+				//Probably white
+				FinalPrediction.PossibleWhite = true;
+			}
+		}
+	}
 
 	if ( !FinalPrediction.PossibleWhite )
 	{
@@ -1181,168 +1122,71 @@ Prediction DoublePredictor::predictNext( ) {
 		}
 	}
 
-	int RedPoints = 0;
-	int BlackPoints = 0;
-
-
-	Streak streak = isStreak( );
-	if ( streak.StreakSize >= 2 ) {
-		// We have a streak, let's see it
-		Color inversecolor = InverseColor( streak.color );
-
-		if ( streak.StreakSize >= cfg::Get( ).Prediction.IgnoreStreakAfter ) {
-			// We have a big streak, don't bet anything
-			// R, R, R, R -> ?
-			ResetPrediction( &FinalPrediction );
-			return FinalPrediction;
-		}
-		else {
-
-			static int StartPos = 0;
-
-			if ( streak.StreakSize == 2 )
-				StartPos = 0;
-
-			Color OldColor = Null;
-			std::vector<int> PresentStreaks;
-			int Size;
-			//Get Most Present Streak size
-			for ( int i = GameTransition.Colors.size( ) - streak.StreakSize + 1; i > 0; i-- )
-			{
-				auto color = GameTransition.Colors.at( i );
-
-				if ( OldColor != Null )
-				{
-					if ( color == OldColor ) {
-						Size++;
-					}
-					else if ( Size ) {
-						PresentStreaks.emplace_back( Size + 1 );
-						Size = 0;
-					}
-				}
-
-				OldColor = color;
-			}
-
-			if ( !PresentStreaks.empty( ) )
-			{
-				int MostPresentStreak = findMostFrequent( PresentStreaks );
-
-				if ( MostPresentStreak >= 2 ) {
-
-					std::cout << "Streak BetPos: " << MostPresentStreak << std::endl;
-
-					// Small streak, try inverse color every 2 streaks
-					// R, R -> B, R, R, R, R -> B
-					if ( streak.StreakSize == StartPos + MostPresentStreak )
-					{
-						if ( inversecolor != Null ) {
-							StartPos = streak.StreakSize;
-							SeparatedPrediction[ STREAK ] = inversecolor;
-							if ( inversecolor == Red ) {
-								RedPoints++;
-								std::cout << "streak vote: red\n";
-							}
-							else if ( inversecolor == Blue ) {
-								BlackPoints++;
-								std::cout << "streak vote: black\n";
-							}
-						}
-					}
-				}
-			}
-
-			ResetPrediction( &FinalPrediction );
-			return FinalPrediction;
-		}
-	}
 
 	Color IAPred = IAPrediction( );
 
-	if ( IAPred != Null )
-	{
-		if ( IAPred == Red ) {
-			RedPoints++;
-			std::cout << "IA vote: red\n";
-		}
-		else if ( IAPred == Blue ) {
-			BlackPoints++;
-			std::cout << "IA vote: black\n";
-		}
-
-		SeparatedPrediction[ IA ] = IAPred;
-	}
+	SetupVote( IAPred , IA );
 
 	Color SequencePrediction = PredictSequence( );
 
-	if ( SequencePrediction != Null )
-	{
-		if ( SequencePrediction == Red ) {
-			RedPoints++;
-			std::cout << "Sequence vote: red\n";
-		}
-		else if ( SequencePrediction == Blue ) {
-			BlackPoints++;
-			std::cout << "Sequence vote: black\n";
-		}
-		SeparatedPrediction[ SEQUENCE ] = SequencePrediction;
-	}
+	SetupVote( SequencePrediction , SEQUENCE );
 
 	Color PatterPrediction = SearchPattern( cfg::Get( ).Prediction.MinPatterSize );
 
-	if ( PatterPrediction != Null )
-	{
-		if ( PatterPrediction == Red ) {
-			RedPoints++;
-			std::cout << "Pattern vote: red\n";
-		}
-		else if ( PatterPrediction == Blue ) {
-			BlackPoints++;
-			std::cout << "Pattern vote: black\n";
-		}
-
-		SeparatedPrediction[ FOUND_PATTERN ] = PatterPrediction;
-	}
+	SetupVote( PatterPrediction , FOUND_PATTERN );
 
 	Color CertaintyPred = CertaintyPrediction( );
 
-	if ( CertaintyPred != Null )
-	{
-		if ( CertaintyPred == Red ) {
-			RedPoints++;
-			std::cout << "Certainty vote: red\n";
-		}
-		else if ( CertaintyPred == Blue ) {
-			BlackPoints++;
-			std::cout << "Certainty vote: black\n";
-		}
+	SetupVote( CertaintyPred , CERTAINTY );
 
-		SeparatedPrediction[ CERTAINTY ] = CertaintyPred;
-	}
+	//Color LogicPred = PredictLogic( );
+	//
+	//SetupVote( CertaintyPred , LOGIC );
 
 	std::cout << "Red votes: " << RedPoints << std::endl;
 	std::cout << "Black votes: " << BlackPoints << std::endl;
 
+
+
+	//if ( RedPoints + BlackPoints > 1 && RedPoints != BlackPoints )
+	//{
+	//	if ( BlackPoints > RedPoints )
+	//	{
+	//		FinalPrediction.color = Blue;
+	//		FinalPrediction.chance = getCertainty( Blue );
+	//		FinalPrediction.method = FOUND_PATTERN;
+	//		SeparatedPrediction[ GENERAL ] = Blue;
+	//		return FinalPrediction;
+	//	}
+	//	else if ( RedPoints > BlackPoints )
+	//	{
+	//		FinalPrediction.color = Red;
+	//		FinalPrediction.chance = getCertainty( Red );
+	//		SeparatedPrediction[ GENERAL ] = Red;
+	//		return FinalPrediction;
+	//	}
+	//}
 	if ( RedPoints + BlackPoints > 1 && RedPoints != BlackPoints )
 	{
-		if ( BlackPoints > RedPoints )
-		{
-			FinalPrediction.color = Blue;
-			FinalPrediction.chance = getCertainty( Blue );
-			FinalPrediction.method = FOUND_PATTERN;
-			SeparatedPrediction[ GENERAL ] = Blue;
-			return FinalPrediction;
-		}
-		else if ( RedPoints > BlackPoints )
+		if ( RedPoints > BlackPoints )
 		{
 			FinalPrediction.color = Red;
 			FinalPrediction.chance = getCertainty( Red );
+			FinalPrediction.method = GENERAL;
 			SeparatedPrediction[ GENERAL ] = Red;
-			return FinalPrediction;
 		}
+		else if ( BlackPoints > RedPoints ) {
+			FinalPrediction.color = Blue;
+			FinalPrediction.chance = getCertainty( Blue );
+			FinalPrediction.method = GENERAL;
+			SeparatedPrediction[ GENERAL ] = Blue;
+		}
+
+		return FinalPrediction;
 	}
 	else {
+		RedPoints = 0;
+		BlackPoints = 0;
 		ResetPrediction( &FinalPrediction );
 		return FinalPrediction;
 	}
@@ -1376,7 +1220,7 @@ Streak DoublePredictor::isStreak( int startpos ) {
 	int start = 1;
 
 	if ( startpos )
-		start = startpos;
+		start += startpos;
 
 	Color c = Red;
 	for ( int i = history.size( ) - start; i >= 0; i-- ) {

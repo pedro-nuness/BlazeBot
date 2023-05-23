@@ -5,6 +5,7 @@
 #include <iostream>
 #include <WinInet.h>
 #include "..\Utils\Config\Config.h"
+#include "..\Utils\Utils.h"
 #pragma comment(lib , "wininet.lib")
 
 
@@ -27,144 +28,6 @@ bool Bigger( int a , int b )
 	return a > b;
 }
 
-
-template<typename T>
-void WriteData( std::string file , T data )
-{
-	std::string dir = "C:\\Blaze\\" + file;
-
-	ofstream arquivo( dir , ios::app );
-
-	// Verificar se o arquivo foi aberto corretamente
-	if ( !arquivo.is_open( ) ) {
-		cout << "Erro ao abrir o arquivo" << endl;
-		return;
-	}
-
-	// Adicionar texto ao arquivo
-	arquivo << data << "\n";
-
-	// Fechar o arquivo
-	arquivo.close( );
-}
-
-void Beats::PrintBetLose( int prediction ) {
-
-	std::vector < Color > CurrentGame;
-
-	for ( int i = BetPtr->APIHistory.size( ) - 18; i < BetPtr->APIHistory.size( ); i++ )
-	{
-		auto c = BetPtr->APIHistory[ i ].GetColor( );
-		CurrentGame.emplace_back( c );
-	}
-
-	std::string data;
-
-	for ( int i = 0; i < CurrentGame.size( ) - 2; i++ )
-	{
-		auto c = CurrentGame[ i ];
-		switch ( c )
-		{
-		case Red:
-			data += "R";
-			break;
-		case Blue:
-			data += "B";
-			break;
-		case White:
-			data += "W";
-			break;
-		default:
-			data += "0";
-			break;
-		}
-
-		data += " ";
-	}
-
-	data += "-> ";
-	int latestcol = CurrentGame[ CurrentGame.size( ) - 1 ];
-
-	switch ( latestcol )
-	{
-	case Red:
-		data += "R";
-		break;
-	case Blue:
-		data += "B";
-		break;
-	case White:
-		data += "W";
-		break;
-	default:
-		data += "0";
-		break;
-	}
-
-	data += " Prediction: ";
-
-	switch ( prediction )
-	{
-	case Red:
-		data += "R";
-		break;
-	case Blue:
-		data += "B";
-		break;
-	case White:
-		data += "W";
-		break;
-	default:
-		data += "0";
-		break;
-	}
-
-	std::string dir = "C:\\Blaze\\Loses";
-
-	switch ( Method )
-	{
-	case FOUND_PATTERN:
-		dir += " ( PATTERN )";
-		break;
-	case CERTAINTY:
-		dir += " ( MATH )";
-		break;
-	case IA:
-		dir += " ( I.A )";
-		break;
-	case STREAK:
-		dir += " ( STREAK )";
-		break;
-	case SEQUENCE:
-		dir += " ( SEQUENCE )";
-		break;
-	case GENERAL:
-		dir += " ( GENERAL )";
-		break;
-	default:
-		dir += " ( NONE )";
-		break;
-	}
-
-
-	dir += ".txt";
-
-	ofstream arquivo( dir , ios::app );
-
-	// Verificar se o arquivo foi aberto corretamente
-	if ( !arquivo.is_open( ) ) {
-		cout << "Erro ao abrir o arquivo" << endl;
-		return;
-	}
-
-	// Adicionar texto ao arquivo
-	arquivo << data << "\n";
-
-	// Fechar o arquivo
-	arquivo.close( );
-
-}
-
 std::string replaceAllString( std::string subject , const std::string & search ,
 	const std::string & replace ) {
 	size_t pos = 0;
@@ -174,8 +37,6 @@ std::string replaceAllString( std::string subject , const std::string & search ,
 	}
 	return subject;
 }
-
-
 
 std::string DownloadString( std::string URL ) {
 	HINTERNET interwebs = InternetOpenA( "Mozilla/5.0" , INTERNET_OPEN_TYPE_DIRECT , NULL , NULL , NULL );
@@ -219,14 +80,13 @@ BetManager::BetManager( const std::string & filename , DoublePredictor * PredPtr
 }
 
 void BetManager::addColor( json play , bool write ) {
-	//if ( write )
-	//	WriteData( filename , play );
 
 	Color c = ( Color ) play[ "color" ];
 
 	predictor->addColor( play );
 
 	std::cout << "Add: " << "c:" << c << ", r: " << play[ "roll" ] << ", id: " << play[ "server_seed" ] << std::endl;
+	LastColorAddTime = std::chrono::high_resolution_clock::now( );
 	switch ( c ) {
 	case Red:
 		reds++;
@@ -376,7 +236,7 @@ void BetManager::ManageBets( ) {
 
 				ImportToBot( this );
 
-				if ( cfg::Get( ).Betting.automatic.AutoBet && NextBet.DidBet() )
+				if ( cfg::Get( ).Betting.automatic.AutoBet && NextBet.DidBet( ) )
 				{
 					DoBet( );
 				}
@@ -587,7 +447,7 @@ void BetManager::setupData( ) {
 
 	//Settup bets vec
 	for ( int i = 0; i < NONE; i++ )
-		SeparatedBeats.emplace_back( Beats( this , i ) );
+		SeparatedBeats.emplace_back( Beats( i ) );
 
 	while ( true ) {
 
@@ -653,6 +513,8 @@ void BetManager::setupData( ) {
 
 					SeparatedBeats[ i ].SetupBeat( prediction , MostRecentPlay.GetColor( ) );
 				}
+
+				this->predictor->SeparatedBeats = this->SeparatedBeats;
 			}
 
 			Bet bet_push;
@@ -670,7 +532,7 @@ void BetManager::setupData( ) {
 
 
 				if ( this->LastPrediction.GetPrediction( ).PossibleWhite
-					&& this->LastPrediction.GetWhiteBet( ) && this->LastPrediction.GetBetAmount( ) )
+					&& this->LastPrediction.GetWhiteBet( ) && this->LastPrediction.DidBet( ) )
 				{
 					if ( MostRecentPlay.GetColor( ) == White ) {
 
@@ -682,7 +544,7 @@ void BetManager::setupData( ) {
 						}
 						else {
 							Bet * LastBet = &bets[ bets.size( ) - 1 ];
-							LastBet->DoBet( LastBet->GetBetAmount( ) - WhiteProfit , LastBet->GetWhiteBet( ) , this->CurrentPlayer.GetBalance( ) );
+							LastBet->DoBet( LastBet->GetBetAmount( ) - WhiteProfit , 0.0f , this->CurrentPlayer.GetBalance( ) );
 							push_bet = false;
 						}
 					}
@@ -720,6 +582,7 @@ void BetManager::setupData( ) {
 						CurrentPlayer.IncreaseBalance( this->LastPrediction.GetBetAmount( ) );
 
 						BalanceHistory.emplace_back( CurrentPlayer.GetBalance( ) );
+						FullBalanceHistory.emplace_back( CurrentPlayer.GetBalance( ) );
 						if ( push_bet )
 							bets.push_back( bet_push );
 					}
@@ -734,6 +597,7 @@ void BetManager::setupData( ) {
 
 						CurrentPlayer.DecreaseBalance( this->LastPrediction.GetBetAmount( ) );
 						BalanceHistory.emplace_back( CurrentPlayer.GetBalance( ) );
+						FullBalanceHistory.emplace_back( CurrentPlayer.GetBalance( ) );
 						if ( push_bet )
 							bets.push_back( bet_push );
 					}
@@ -743,6 +607,7 @@ void BetManager::setupData( ) {
 			cfg::Get( ).Game.InitialBalance = CurrentPlayer.GetInitialMoney( );
 			cfg::Get( ).Game.CurrentBalance = CurrentPlayer.GetBalance( );
 			cfg::Get( ).Game.BalanceHistory = BalanceHistory;
+			cfg::Get( ).Game.FullBalanceHistory = FullBalanceHistory;
 
 
 			bets_display.push_back( bet_push );
@@ -782,19 +647,26 @@ void PrintBet( BetManager * bet , bool Leave = false )
 {
 	json result;
 
+	if ( cfg::Get( ).Betting.automatic.AutoBet )
+		cfg::Get( ).Betting.automatic.AutoBet = false;
+
 	result[ "balance" ] = bet->CurrentPlayer.GetBalance( );
 	result[ "initialbalance" ] = bet->CurrentPlayer.GetInitialMoney( );
 	result[ "profit" ] = bet->CurrentPlayer.GetProfit( );
 	result[ "exit" ] = Leave;
 
-	std::ofstream arquivo( "C:\\Blaze\\result_import.json" , std::ios::trunc );
+	std::string result_str = result.dump( );
 
-	if ( arquivo.is_open( ) ) {
-		arquivo << result;
-	}
-	else {
-		std::cout << "Erro ao abrir o arquivo." << std::endl;
-	}
+	Utils::Get( ).WriteData( "result_import.json" , result_str , true );
+
+	json graph;
+	graph[ "balance" ] = bet->BalanceHistory;
+	graph[ "won" ] = result[ "profit" ] > 0;
+
+
+	std::string graph_str = graph.dump();
+
+	Utils::Get( ).WriteData( "GameHistory.json", graph_str , false );
 
 	if ( !Leave ) {
 
@@ -817,7 +689,26 @@ T clamp_value( T Value , T min , T max )
 	return Value;
 }
 
+int aproximaFloat( float numero ) {
+	if ( numero >= 0 ) {
+		int parteInteira = static_cast< int >( numero );
+		float parteDecimal = numero - parteInteira;
 
+		if ( parteDecimal > 0.5 )
+			return parteInteira + 1;
+		else
+			return parteInteira;
+	}
+	else {
+		int parteInteira = static_cast< int >( numero );
+		float parteDecimal = parteInteira - numero;
+
+		if ( parteDecimal > 0.5 )
+			return parteInteira - 1;
+		else
+			return parteInteira;
+	}
+}
 
 bool BetManager::NeedToWait( )
 {
@@ -873,50 +764,7 @@ bool BetManager::NeedToWait( )
 }
 
 
-void Beats::SetupBeat( int ColorPrediction , int TrueColor )
-{
-	if ( ColorPrediction != Null ) {
-		if ( ColorPrediction == TrueColor ) {
-			WasWinning = true;
-			Hits++;
 
-			Results.emplace_back( WON );
-
-			if ( WasLoosing ) {
-				RollLoses.emplace_back( CurrentRollLose );
-
-				if ( CurrentRollLose && CurrentRollLose <= cfg::Get( ).Betting.type[ LOSE ].MaxMultiplierTimes )
-				{
-					Misses -= CurrentRollLose;
-				}
-
-				CurrentRollLose = 0;
-				WasLoosing = false;
-			}
-		}
-		else {
-			WasWinning = false;
-
-			Results.emplace_back( LOSE );
-
-			PrintBetLose( ColorPrediction );
-
-			if ( !WasWinning )
-			{
-				WasLoosing = true;
-
-				CurrentRollLose++;
-
-
-				if ( CurrentRollLose > MaxRollLoseAmount )
-				{
-					MaxRollLoseAmount = CurrentRollLose;
-				}
-			}
-			Misses++;
-		}
-	}
-}
 
 Bet BetManager::PredictBets( Prediction predict ) {
 
@@ -1026,7 +874,8 @@ Bet BetManager::PredictBets( Prediction predict ) {
 			CurrentBet = MinimumBet;
 
 		if ( predict.PossibleWhite ) {
-			WhiteBet = MinimumBet / 2;
+		
+			WhiteBet = aproximaFloat( clamp_value(  CurrentBet / 14  , MinimumBet / 2 , 10.f ) );
 			CurrentBet += WhiteBet;
 		}
 
@@ -1041,8 +890,6 @@ Bet BetManager::PredictBets( Prediction predict ) {
 		}
 		else
 		{
-
-
 			if ( NeedToWait( ) )
 			{
 				NextBet.SetMethod( STANDBY );
@@ -1054,6 +901,10 @@ Bet BetManager::PredictBets( Prediction predict ) {
 			float WinMultipliedValue = ( LastBet.GetBetAmount( ) * ( cfg::Get( ).Betting.type[ WON ].BetMultiplier / 100 ) );
 			float LoseMultipliedValue = ( LastBet.GetBetAmount( ) * ( cfg::Get( ).Betting.type[ LOSE ].BetMultiplier / 100 ) );
 
+			if ( cfg::Get( ).Betting.type[ WON ].IncrementMinimum )
+				WinMultipliedValue += MinimumBet;
+			if ( cfg::Get( ).Betting.type[ LOSE ].IncrementMinimum )
+				LoseMultipliedValue += MinimumBet;
 
 			if ( LastBet.GetBetResult( ) == LOSE ) //We lose the LastBet
 			{
@@ -1132,44 +983,10 @@ Bet BetManager::PredictBets( Prediction predict ) {
 
 					if ( cfg::Get( ).Betting.security.PredictDownPeaks )
 					{
-						//Current On a loss record
-						if ( LoseStreak > SeparatedBeats[ GENERAL ].GetMediumRollLoseAmount( ) + 1 )
+						if ( SeparatedBeats[ GENERAL ].OnBadTrip( ) )
 						{
-							std::vector<int> OutLiners;
-
-							std::vector<int> RollLoses = SeparatedBeats[ GENERAL ].GetRollLoses( );
-
-
-							int Count = 0;
-							for ( auto Roll : RollLoses )
-							{
-								if ( Count >= BalanceHistory.size( ) )
-									break;
-
-								if ( Roll > SeparatedBeats[ GENERAL ].GetMediumRollLoseAmount( ) + 1 )
-									OutLiners.emplace_back( Roll );
-
-								Count++;
-							}
-
-							if ( !OutLiners.empty( ) ) {
-
-								float Sum = 0;
-
-								for ( auto Roll : OutLiners )
-								{
-									Sum += Roll;
-								}
-
-								Sum /= OutLiners.size( );
-								Sum = ( int ) Sum;
-
-								if ( LoseStreak > Sum )
-								{
-									LoseMultipliedValue = MinimumBet;
-								}
-
-							}
+							NextBet.SetMethod( STANDBY );
+							return NextBet;
 						}
 					}
 
@@ -1246,7 +1063,7 @@ Bet BetManager::PredictBets( Prediction predict ) {
 		Waited = false;
 
 		if ( predict.PossibleWhite ) {
-			WhiteBet = MinimumBet / 2;
+			WhiteBet = aproximaFloat ( clamp_value( CurrentBet / 14 , MinimumBet / 2 , 10.f ));
 			CurrentBet += WhiteBet;
 		}
 
@@ -1338,13 +1155,13 @@ void typeNumber( double num ) {
 	}
 }
 
+int DelayPerAct = 200;
 
-void BetManager::DoBet( ) {
+void BetManager::BetOnColor( Color c , float amount )
+{
 	POINT colorpos = { 0,0 };
 
-	Sleep( 2500 );
-
-	switch ( this->CurrentPrediction.GetColor( ) )
+	switch ( c )
 	{
 	case Red:
 		colorpos = this->RedPos;
@@ -1360,39 +1177,42 @@ void BetManager::DoBet( ) {
 		break;
 	}
 
+
 	//Clica na cor
 	SetAndClick( colorpos );
 
 	//Coloca o valor da aposta
 	SetAndClick( this->InputPos );
-	Sleep( 500 );
-	typeNumber( this->CurrentPrediction.GetBetAmount( ) );
+	std::this_thread::sleep_for( std::chrono::milliseconds( DelayPerAct ) );
+	typeNumber( amount );
 
 	//Aposta
-	Sleep( 500 );
+	std::this_thread::sleep_for( std::chrono::milliseconds( DelayPerAct ) );
 	SetAndClick( this->StartBetPos );
+}
 
-	if ( this->CurrentPrediction.GetWhiteBet( ) )
+void BetManager::DoBet( ) {
+
+	float ElapsedTime = std::chrono::duration_cast< std::chrono::seconds >( std::chrono::high_resolution_clock::now( ) - LastColorAddTime ).count( );
+
+	while ( ElapsedTime < 4.0 )
 	{
-		Sleep( 500 );
-
-		//Apostar no branco
-		 
-		//Clica na cor
-		SetAndClick( this->WhitePos);
-
-		//Coloca o valor da aposta
-		SetAndClick( this->InputPos );
-		Sleep( 500 );
-		typeNumber( this->CurrentPrediction.GetWhiteBet( ) );
-
-		//Aposta
-		Sleep( 500 );
-		SetAndClick( this->StartBetPos );
+		std::this_thread::sleep_for( std::chrono::milliseconds( DelayPerAct ) );
+		ElapsedTime = std::chrono::duration_cast< std::chrono::seconds >( std::chrono::high_resolution_clock::now( ) - LastColorAddTime ).count( );
 	}
-	Sleep( 500 );
-	SetCursorPos( 0 , 0 );
 
+	if ( this->CurrentPrediction.DidBet( ) )
+	{
+		BetOnColor( this->CurrentPrediction.GetColor( ) , this->CurrentPrediction.GetBetAmount( ) );
+
+		if ( this->CurrentPrediction.GetWhiteBet( ) )
+		{
+			BetOnColor( White , this->CurrentPrediction.GetWhiteBet( ) );
+		}
+	}
+
+	std::this_thread::sleep_for( std::chrono::milliseconds( DelayPerAct ) );
+	SetCursorPos( 0 , 0 );
 
 }
 

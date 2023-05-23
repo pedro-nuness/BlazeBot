@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "..\Colors\ColorManagement\ColorManagement.h"
+#include "..\BetManagement\Beats\Beats.h"
 
 namespace std {
     template <>
@@ -39,6 +40,7 @@ enum PREDICTOR_METHOD {
     STREAK,
     CERTAINTY,
     SEQUENCE,
+   // LOGIC ,
     GENERAL,
     NONE
 };
@@ -82,16 +84,20 @@ private:
     double blue_chance = 0.46;
     double white_chance = 0.06;
     
+    int RedPoints = 0;
+    int BlackPoints = 0;
+
 public:
-    int Beats;
+    int Hits;
     int Misses;
     Color LastColor;
   
+    std::vector<Beats> SeparatedBeats;
 
     DoublePredictor( );
-
+    
     double get_next_color_probability( Color color );
-
+    void SetupVote(Color c, int ID );
     void AddHistory( json col );
     std::vector<ColorManagement> GetHistory();
     std::vector<int> SeparatedPrediction;
@@ -106,7 +112,9 @@ public:
     Color getNextColorWithPreference( Color next_color );
     Prediction predictNext( );
     Color PredictSequence( );
+    Color PredictLogic( );
     Color SearchPattern( int window_size );
+    Color StreakSolve( );
     Color IAPrediction( );
     Color CertaintyPrediction( );
     Streak isStreak( int startpos = 0 );

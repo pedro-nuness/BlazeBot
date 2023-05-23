@@ -1,6 +1,8 @@
-#pragma once
+#ifndef UTILS_H
+#define UTILS_H
 
 #include <string>
+#include "Singleton.h"
 
 enum CMD_COLORS
 {
@@ -21,8 +23,14 @@ enum CMD_COLORS
     LIGHT_WHITE
 };
 
-class Utils
+class Utils : public CSingleton<Utils>
 {
 public:
     static void ColoredText( std::string text , CMD_COLORS color );
+
+    void WriteData( std::string file , std::string data, bool DeleteContent );
+
 };
+
+
+#endif // UTILS_H

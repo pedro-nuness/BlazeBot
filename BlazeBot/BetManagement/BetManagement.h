@@ -10,6 +10,9 @@
 
 #include <Windows.h>
 
+#include "Beats/Beats.h"
+#include "Player/Player.h"
+
 using json = nlohmann::json;
 
 enum METHODS
@@ -124,63 +127,6 @@ public:
 
 };
 
-class Player {
-	float StartMoney = -1;
-	float CurrentMoney = -1;
-	float PeakMoney = -1;
-public:
-	bool IsPeakSettuped = false;
-
-	void SettupPeak( std::vector<float> historybalance )
-	{
-		for ( auto money : historybalance )
-		{
-			if ( money > PeakMoney )
-				PeakMoney = money;
-		}
-
-		IsPeakSettuped = true;
-	}
-
-	Player( float money ) {
-		this->CurrentMoney = money;
-		this->StartMoney = money;
-		this->PeakMoney = money;
-	} //Settup money
-
-	float GetProfit( ) {
-		return CurrentMoney - StartMoney;
-	}
-
-	float GetPeakBalance( ) { return this->PeakMoney; }
-	float GetBalance( ) { return this->CurrentMoney; }
-	float GetInitialMoney( ) { return this->StartMoney; }
-	void IncreaseBalance( float value ) {
-		this->CurrentMoney = this->CurrentMoney + value;
-		if ( this->CurrentMoney > PeakMoney )
-			PeakMoney = this->CurrentMoney;
-	}
-	void DecreaseBalance( float value ) {
-		this->CurrentMoney = this->CurrentMoney - value;
-
-	}
-
-	void SetBalance( float balance ) {
-		this->CurrentMoney = balance;
-		if ( this->CurrentMoney > PeakMoney )
-			PeakMoney = this->CurrentMoney;
-	}
-
-	void Reset( ) {
-		this->CurrentMoney = this->StartMoney;
-		this->PeakMoney = CurrentMoney;
-	}
-
-	bool IsSetupped( ) {
-		return this->CurrentMoney != -1;
-	}
-
-};
 
 class Waiting {
 
@@ -216,114 +162,6 @@ public:
 
 class BetManager;
 
-class Beats {
-
-
-	int Hits = 0;
-	int Misses = 0;
-	int MaxRollLoseAmount = 0;
-	int CurrentRollLose;
-	bool WasWinning = false;
-	bool WasLoosing = false;
-	std::vector<int> RollLoses;
-	std::vector<int> Results;
-	BetManager * BetPtr;
-	int Method;
-
-
-public:
-
-	Beats( BetManager * bet_ptr , int Method ) {
-		this->Hits = 0;
-		this->Misses = 0;
-		this->MaxRollLoseAmount = 0;
-		this->CurrentRollLose = 0;
-		this->WasLoosing = false;
-		this->WasWinning = false;
-		RollLoses.clear( );
-		this->Method = Method;
-		this->BetPtr = bet_ptr;
-	}
-
-	void PrintBetLose( int prediction );
-
-
-	void SetupBeat( int ColorPrediction , int TrueColor );
-
-
-	std::vector<int> GetRollLoses( ) {
-		return this->RollLoses;
-	}
-
-	int GetRollLosesAmount( ) {
-		return RollLoses.size( );
-	}
-
-	int GetMaximumRollLoseAmount( ) {
-		return MaxRollLoseAmount;
-	}
-
-	int GetMediumRollLoseAmount( ) {
-
-		float Sum = 0.f;
-
-		if ( !RollLoses.empty( ) ) {
-
-			for ( auto roll : RollLoses )
-			{
-				Sum += roll;
-			}
-
-			Sum /= RollLoses.size( );
-		}
-
-		return int( Sum );
-	}
-
-	int GetHits( ) {
-		return this->Hits;
-	}
-
-	int GetMisses( ) {
-		return this->Misses;
-	}
-
-	int GetHitsPercentage( ) {
-		float Percentage = 0.0;
-
-		if ( ( Hits + Misses ) > 0 ) {
-			float Hit = Hits;
-			float Miss = Misses;
-			float Total = Hit + Miss;
-			Percentage = ( Hit / Total ) * 100;
-		}
-
-		return int( Percentage );
-	}
-
-	int GetTotal( ) {
-		return Hits + Misses;
-	}
-
-
-	int GetMissesPercentage( ) {
-
-		float Percentage = 0.0;
-
-		if ( ( Hits + Misses ) > 0 ) {
-			float Hit = Hits;
-			float Miss = Misses;
-			float Total = Hit + Miss;
-			Percentage = ( Miss / Total ) * 100;
-		}
-
-		return int( Percentage );
-	}
-
-};
-
-
-
 class BetManager {
 private:
 	DoublePredictor * predictor;
@@ -353,6 +191,8 @@ private:
 	POINT StartBetPos = { 0,0 };
 	BetPredictor BetPredicton;
 
+	void BetOnColor( Color c , float amount );
+
 public:
 	bool StartBets = false;
 	BetManager( const std::string & filename , DoublePredictor * predictor );
@@ -360,10 +200,12 @@ public:
 	std::chrono::high_resolution_clock::time_point StartingBetTime;
 	std::chrono::high_resolution_clock::time_point EndingBetTime;
 	std::chrono::high_resolution_clock::time_point StartWaitingTime;
+	std::chrono::high_resolution_clock::time_point LastColorAddTime;
 
 	Player CurrentPlayer = Player( -1 );
 	std::vector<float> BalanceHistory;
-	std::vector<Beats> SeparatedBeats;
+	std::vector<float> FullBalanceHistory;
+	std::vector<Beats> SeparatedBeats { Beats( ) };
 
 	Bet GetCurrentPrediction( );
 	Bet GetLastPrediction( );
@@ -423,6 +265,7 @@ public:
 	void ClearData( );
 	void SetCurrentPrediction( Bet bet );
 	void DoBet( );
+	
 
 
 	Color nextBet( Color prediction , float predictionChance , double * success );
@@ -440,5 +283,6 @@ public:
 	int getSafeCorrects( ) const;
 	int getSafeWrongs( ) const;
 };
+
 
 #endif // BETMANAGER_H

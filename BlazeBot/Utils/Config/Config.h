@@ -27,6 +27,7 @@ public:
 	struct 
 	{
 		bool InformationWindow = false;
+		bool FullGraph = false;
 		bool BalanceWindow = false;
 		bool HistoryWindow = false;
 		bool AccurracyWindow = false;
@@ -44,6 +45,7 @@ public:
 			float BetMultiplier = 40;
 			int MultiplyAfterX = 2;
 			int MaxMultiplierTimes = 2;
+			bool IncrementMinimum = false;
 
 		}type[2];
 
@@ -109,6 +111,7 @@ public:
 	struct {
 		
 		std::vector<float> BalanceHistory;
+		std::vector<float> FullBalanceHistory;
 		float InitialBalance;
 		float CurrentBalance;
 
