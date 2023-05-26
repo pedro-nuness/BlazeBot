@@ -17,6 +17,7 @@ private:
     torch::nn::Linear outputLayer { nullptr };
     int window_size = 4;
     int multiplier = 3;
+    int Neurons = 64;
 
     std::string LastSeed = "";
 
@@ -32,7 +33,7 @@ public:
     Color Predict( std::vector<ColorManagement> history );
     TrainingData CreateTrainingData( std::vector<ColorManagement> & history );
     TrainingData CreateLastColHistory( std::vector<ColorManagement> & history );
-    TrainingData CreateExampleData( std::vector<ColorManagement> history );
+    TrainingData CreateExampleData( std::vector<ColorManagement> history, int amount = 20000);
    
 private:
     torch::Tensor Forward( torch::Tensor input );

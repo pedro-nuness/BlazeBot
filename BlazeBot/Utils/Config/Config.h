@@ -2,6 +2,7 @@
 
 #include "..\Singleton.h"
 #include <vector>
+#include <string>
 
 class Vector2D {
 
@@ -21,6 +22,24 @@ public:
 
 };
 
+class Notification {
+public:
+	int Type = -1;
+	std::string Message = "";
+	int Timing = 3000;
+
+};
+
+enum NotificationType
+{
+	None ,
+	Success ,
+	Warning ,
+	Error ,
+	Info ,
+	COUNT
+};
+
 class cfg : public CSingleton<cfg> {
 public:
 
@@ -29,6 +48,7 @@ public:
 		bool InformationWindow = false;
 		bool FullGraph = false;
 		bool BalanceWindow = false;
+		bool SimulationGraph = false;
 		bool HistoryWindow = false;
 		bool AccurracyWindow = false;
 		bool ShowBetsWindow = false;
@@ -65,6 +85,9 @@ public:
 			float CapitalProtectPercentage = 60;
 
 			bool PredictDownPeaks = false;
+
+			bool PlayOnlyOnStableMoments = false;
+
 
 			bool WaitIfLosing = false;
 			int WaitAfterXLose = 3;
@@ -114,6 +137,10 @@ public:
 		std::vector<float> FullBalanceHistory;
 		float InitialBalance;
 		float CurrentBalance;
+		float FullBalance;
+
+		std::vector<Notification> Notifications;
+
 
 	}Game;
 

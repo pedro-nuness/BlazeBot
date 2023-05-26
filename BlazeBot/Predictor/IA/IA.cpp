@@ -1,7 +1,10 @@
 #include "IA.h"
+#include "..\..\Utils\Utils.h"
 #include <limits>
 #include <torch/serialize/output-archive.h>
 #include <torch/serialize/input-archive.h>
+
+
 
 extern bool Exist( const std::string & name );
 extern std::string Folder;
@@ -11,9 +14,9 @@ extern std::string HistoryName;
 
 ColorPredictor::ColorPredictor( int window_size ) {
 	this->window_size = window_size;
-	inputLayer = torch::nn::Linear( torch::nn::LinearOptions( window_size * multiplier , 32 ) );
-	hiddenLayer = torch::nn::Linear( torch::nn::LinearOptions( 32 , 16 ) );
-	outputLayer = torch::nn::Linear( torch::nn::LinearOptions( 16 , 3 ) );
+	inputLayer = torch::nn::Linear( torch::nn::LinearOptions( window_size * multiplier , Neurons ) );
+	hiddenLayer = torch::nn::Linear( torch::nn::LinearOptions( Neurons , Neurons / 2 ) );
+	outputLayer = torch::nn::Linear( torch::nn::LinearOptions( Neurons / 2 , 3 ) );
 }
 
 void ColorPredictor::SaveModel( const std::string & file_path )
@@ -55,14 +58,16 @@ void ColorPredictor::Train( const TrainingData & trainingData , const TrainingDa
 	// Mover o modelo para o dispositivo selecionado (GPU, se disponível)
 	inputLayer->to( device );
 
-	double min_validation_loss = std::numeric_limits<double>::min( );
+	bool SetuppedLoss = false;
+	double min_validation_loss = (std::numeric_limits<double>::min)( );
+	double last_loss = (std::numeric_limits<double>::min)( );
 	int epochs_no_improve = 0;
 	int n_epochs_stop = 1; // número de épocas para parar o treinamento se não houver melhora
 
 	torch::optim::Adam optimizer( inputLayer->parameters( ) , torch::optim::AdamOptions( 0.001 ) );
 	torch::nn::CrossEntropyLoss lossFunction {};
 
-	for ( size_t epoch = 0; epoch < 200; ++epoch ) {
+	for ( size_t epoch = 0; epoch < 1; ++epoch ) {
 		optimizer.zero_grad( );
 		auto inputs = torch::empty( { static_cast< int >( trainingData.size( ) ), window_size * multiplier } ).to( device );
 		auto targets = torch::empty( static_cast< int >( trainingData.size( ) ) , torch::TensorOptions( ).dtype( torch::kLong ) ).to( device );
@@ -84,6 +89,7 @@ void ColorPredictor::Train( const TrainingData & trainingData , const TrainingDa
 		// validate the model
 
 		float sum = 0;
+		float total = validationData.size( );
 
 		for ( size_t i = 0; i < validationData.size( ) - 1; ++i ) {
 
@@ -96,11 +102,16 @@ void ColorPredictor::Train( const TrainingData & trainingData , const TrainingDa
 			auto val_output = Forward( val_inputs );
 			auto predicted = val_output.argmax( ).item<int>( );
 
-			if ( predicted == static_cast< int >( trainingData[ i ].second ) )
-				sum++;
+			if ( static_cast< Color >(predicted) != Null ) {
+
+				if ( static_cast< Color > (predicted ) == static_cast< Color >( trainingData[ i ].second ) )
+					sum++;
+			}
+			else
+				total--;
 		}
 
-		sum /= validationData.size( );
+		sum /= total;
 		float val_loss = sum;
 
 		std::cout << "Validation of Epoch: " << epoch << ", Loss: " << val_loss << std::endl;
@@ -117,6 +128,17 @@ void ColorPredictor::Train( const TrainingData & trainingData , const TrainingDa
 				break; // early stop
 			}
 		}
+
+		if ( last_loss  && SetuppedLoss)
+		{
+			if ( fabs( val_loss - last_loss ) < 0.05 )
+			{
+				std::cout << "Small improvement, stopping!" << std::endl;
+				break; // early stop
+			}
+		}
+		SetuppedLoss = true;
+		last_loss = val_loss;
 	}
 }
 
@@ -342,7 +364,7 @@ bool ColorPredictor::TraningExist( ) {
 	return true;
 }
 
-TrainingData ColorPredictor::CreateExampleData( std::vector<ColorManagement> history ) {
+TrainingData ColorPredictor::CreateExampleData( std::vector<ColorManagement> history, int amount ) {
 
 	std::string Seed = "";
 
@@ -352,7 +374,7 @@ TrainingData ColorPredictor::CreateExampleData( std::vector<ColorManagement> his
 	else
 		Seed = LastSeed;
 
-	std::vector<ColorManagement> Output = GetNodeOutput( Seed , 20000 );
+	std::vector<ColorManagement> Output = GetNodeOutput( Seed , amount );
 
 	if ( !Output.empty( ) ) {
 

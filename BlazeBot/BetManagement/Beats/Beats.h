@@ -22,7 +22,9 @@ public:
     void PrintBetLose( int prediction );
     void SetupBeat( int ColorPrediction , int TrueColor );
     int DistanceBetweenRolls( );
+    bool StableMoment( );
     bool OnBadTrip( );
+    bool OnBetPattern( int startpos = 1);
 
     std::vector<int> GetRollLoses( );
     int GetRollLosesAmount( );

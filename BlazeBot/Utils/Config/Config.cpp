@@ -253,6 +253,7 @@ void AddVars( ) {
 	std::vector<std::string> bSecurityClass = { BETTING_CLASS, "Security" };
 
 	Add( &cfg::Get( ).Betting.security.PreventDownPeaks , B , "PreventDownPeaks" , bSecurityClass );
+	Add( &cfg::Get( ).Betting.security.PlayOnlyOnStableMoments , B , "PlayOnlyOnStableMoments" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.MinimumPeakValue , F , "MinimumPeakValue" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.MinimumPeakDistance , I , "MinimumPeakDistance" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.WaitingTime , I , "WaitingTime" , bSecurityClass );
@@ -327,6 +328,7 @@ void AddVars( ) {
 	Add( &cfg::Get( ).Game.FullBalanceHistory , V , "FullBalanceHistory" , bGameClass );
 	Add( &cfg::Get( ).Game.InitialBalance , F, "InitialBalance" , bGameClass );
 	Add( &cfg::Get( ).Game.CurrentBalance , F , "CurrentBalance" , bGameClass );
+	Add( &cfg::Get( ).Game.FullBalance , F , "FullBalance" , bGameClass );
 
 	//////////////////////// aim ///////////////
 

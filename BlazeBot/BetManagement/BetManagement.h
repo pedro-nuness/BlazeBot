@@ -167,6 +167,7 @@ private:
 	DoublePredictor * predictor;
 	std::vector<Bet> bets;
 	std::vector<Bet> bets_display;
+	std::vector<Bet> complete_bets;
 	std::string filename;
 
 	int reds;
@@ -203,6 +204,7 @@ public:
 	std::chrono::high_resolution_clock::time_point LastColorAddTime;
 
 	Player CurrentPlayer = Player( -1 );
+	Player FullPlayer = Player( -1 );
 	std::vector<float> BalanceHistory;
 	std::vector<float> FullBalanceHistory;
 	std::vector<Beats> SeparatedBeats { Beats( ) };
@@ -261,8 +263,12 @@ public:
 	bool NeedToWait( );
 	void setupData( );
 	void ManageBets( );
+	void SimulateGame(  std::vector<ColorManagement> GameHistory , std::vector<ColorManagement> Data );
+	void StartGameSimulation( BetManager TrueBetManager);
+	Player SimulatedPlayer = Player( -1 );
 	void addColor( json play , bool write = true );
 	void ClearData( );
+	void ClearFull( );
 	void SetCurrentPrediction( Bet bet );
 	void DoBet( );
 	

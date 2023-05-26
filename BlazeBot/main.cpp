@@ -13,6 +13,8 @@
 #include <thread>
 #include <fstream>
 
+#include "ImGui/imgui_notify.h"
+
 #include "BetManagement/BetManagement.h"
 #include "Predictor/Predictor.h"
 #include "Colors/ColorManagement/ColorManagement.h"
@@ -38,8 +40,11 @@ std::string IAModel = "IA";
 bool Stop = false;
 
 DoublePredictor predictor;
-
+DoublePredictor spredictor;
 BetManager betManager( filename , &predictor );
+
+BetManager SimulationbetManager( "Simulated" + filename , &spredictor );
+
 Utils usefull;
 
 static LPDIRECT3D9              g_pD3D = NULL;
@@ -127,7 +132,7 @@ POINT GetPoint( std::string name , json & js ) {
 	return POINT( js[ name ][ "x" ] , js[ name ][ "y" ] );
 }
 
-POINT TransformVec( Vector2D vec) {
+POINT TransformVec( Vector2D vec ) {
 	return POINT( vec.x , vec.y );
 }
 
@@ -148,7 +153,9 @@ void save_cfg( bool read ) {
 		if ( !betManager.CurrentPlayer.IsSetupped( ) )
 		{
 			betManager.CurrentPlayer = Player( cfg::Get( ).Game.InitialBalance );
+			betManager.FullPlayer = Player( cfg::Get( ).Game.InitialBalance );
 			betManager.CurrentPlayer.SetBalance( cfg::Get( ).Game.CurrentBalance );
+			betManager.FullPlayer.SetBalance( cfg::Get( ).Game.FullBalance );
 			betManager.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
 			betManager.FullBalanceHistory = cfg::Get( ).Game.FullBalanceHistory;
 
@@ -167,7 +174,7 @@ void save_cfg( bool read ) {
 		cfg::Get( ).Betting.automatic.InputPoint = TransformPoint( betManager.GetInputPosition( ) );
 		cfg::Get( ).Betting.automatic.BetPoint = TransformPoint( betManager.GetStartPosition( ) );
 
-		SaveCFG( "config.json" );	
+		SaveCFG( "config.json" );
 	}
 }
 
@@ -201,7 +208,7 @@ void SetPoint( POINT * point ) {
 	}
 }
 
-void SetupPoints( BetManager* bet) {
+void SetupPoints( BetManager * bet ) {
 
 	std::cout << "PRESS INSERT TO SET RED POSITION!\n";
 	std::cout << "Waiting VK_INSERT!\n";
@@ -251,6 +258,8 @@ void SetupPoints( BetManager* bet) {
 	std::cout << "Sucessfully settuped bet points!\n";
 }
 
+bool StartedSimulation = false;
+
 int main( int , char ** )
 {
 	ShowWindow( ::GetConsoleWindow( ) , SW_SHOW );
@@ -270,7 +279,7 @@ int main( int , char ** )
 		if ( Exist( Folder + "config.json" ) ) {
 			save_cfg( true );
 
-			if(!betManager.GetRedPosition().x)
+			if ( !betManager.GetRedPosition( ).x )
 				SetupPoints( &betManager );
 
 			save_cfg( false );
@@ -325,16 +334,18 @@ int main( int , char ** )
 	ImGui_ImplWin32_Init( hwnd );
 	ImGui_ImplDX9_Init( g_pd3dDevice );
 
+	ImGuiIO * ioptr = &ImGui::GetIO( );
 
-	io.Fonts->AddFontFromFileTTF( "c:\\Windows\\Fonts\\TT Firs Neue Trl.ttf" , 25.f );
+	ioptr->Fonts->AddFontFromMemoryTTF( ( void * ) new_font , sizeof( new_font ) , 17.f );
+
+	// Initialize notify
+	ImGui::MergeIconsWithLatestFont( 16.f , false );
 
 
 	LPDIRECT3DTEXTURE9 Background = nullptr;
 
 	if ( Background == nullptr )
 		D3DXCreateTextureFromFileInMemoryEx( g_pd3dDevice , &BgBytes , sizeof( BgBytes ) , 1920 , 1080 , D3DX_DEFAULT , D3DUSAGE_DYNAMIC , D3DFMT_UNKNOWN , D3DPOOL_DEFAULT , D3DX_DEFAULT , D3DX_DEFAULT , 0 , NULL , NULL , &Background );
-
-
 
 	ImVec4 clear_color = ImVec4( 0.45f , 0.55f , 0.60f , 1.00f );
 
@@ -416,12 +427,51 @@ int main( int , char ** )
 			ImGui::Checkbox( "Accurracy Window" , &cfg::Get( ).Windows.AccurracyWindow );
 
 			ImGui::Checkbox( "Balance graph" , &cfg::Get( ).Windows.BalanceWindow );
+
+			ImGui::Checkbox( "Simulation graph" , &cfg::Get( ).Windows.SimulationGraph );
+
 			ImGui::Checkbox( "Full Balance graph" , &cfg::Get( ).Windows.FullGraph );
 
 			ImGui::Checkbox( "Betting Options" , &cfg::Get( ).Windows.ShowBetsWindow );
 
 			ImGui::Checkbox( "Predicting Options" , &cfg::Get( ).Windows.ShowPredictionWindow );
 
+			if ( cfg::Get( ).Windows.SimulationGraph )
+			{
+				if ( !StartedSimulation )
+				{
+					std::thread( &BetManager::StartGameSimulation , &SimulationbetManager , betManager ).detach( );
+					StartedSimulation = true;
+				}
+
+
+				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
+				ImGui::Begin( "Simulation Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+
+				//PlotLines( const char * label , const float * values ,
+				//int values_count , int values_offset = 0 , 
+				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
+				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
+
+				ImGui::PlotLines( "##simulatedgraph" , SimulationbetManager.BalanceHistory.data( ) , SimulationbetManager.BalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+
+				ImGui::End( );
+
+
+
+				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
+				ImGui::Begin( "Full Simulation Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+
+				//PlotLines( const char * label , const float * values ,
+				//int values_count , int values_offset = 0 , 
+				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
+				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
+
+				ImGui::PlotLines( "##fullsimulatedgraph" , SimulationbetManager.FullBalanceHistory.data( ) , SimulationbetManager.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+
+				ImGui::End( );
+
+			}
 
 			if ( cfg::Get( ).Windows.AccurracyWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 300 , 300 ) );
@@ -461,9 +511,9 @@ int main( int , char ** )
 						case GENERAL:
 							Method += " ( GENERAL )";
 							break;
-						//case LOGIC:
-						//	Method += " ( LOGIC )";
-						//	break;
+							//case LOGIC:
+							//	Method += " ( LOGIC )";
+							//	break;
 						default:
 							Method += " ( NONE )";
 							break;
@@ -561,13 +611,14 @@ int main( int , char ** )
 				case GENERAL:
 					PredColor += " ( GENERAL )";
 					break;
-				//case LOGIC:
-				//	PredColor += " ( LOGIC )";
-				//	break;
+					//case LOGIC:
+					//	PredColor += " ( LOGIC )";
+					//	break;
 				default:
 					PredColor += " ( NONE )";
 					break;
 				}
+
 
 				ImGui::Text( PredColor.c_str( ) );
 				ImGui::Text( Str( "Certainty: " , std::to_string( int( chance ) ) ).c_str( ) );
@@ -610,10 +661,10 @@ int main( int , char ** )
 
 				for ( int i = Hist.size( ) - 18; i < Hist.size( ); i++ ) {
 
-					auto Color = Hist.at( i ).GetColor( );
-					auto Number = Hist.at( i ).GetRoll( );
+					auto Color = Hist[ i ].GetColor( );
+					auto Number = Hist[ i ].GetRoll( );
 
-					int Number_Spacing;
+					int Number_Spacing = 0;
 					if ( Number >= 10 )
 					{
 						Number_Spacing = 6;
@@ -650,7 +701,7 @@ int main( int , char ** )
 					ImVec2 sum = sum_vec( center , ImVec2( size / 2 , size / 2 ) );
 
 					drawList->AddRectFilled( less , sum , col );
-					center = ImVec2 { center.x - Number_Spacing, center.y - 6 };
+					center = ImVec2 { center.x - Number_Spacing, center.y - 8 };
 					drawList->AddText( NULL , 0 , center , text_col , std::to_string( Number ).c_str( ) , NULL , 0.0f , NULL );
 					start = 1;
 				}
@@ -677,11 +728,11 @@ int main( int , char ** )
 			}
 
 
-			if ( cfg::Get( ).Windows.BalanceWindow ) {
+			if ( cfg::Get( ).Windows.FullGraph ) {
 				// iterate over the array using the pointer
 
 				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
-				ImGui::Begin( "Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+				ImGui::Begin( "Full Balance graph" , NULL , ImGuiWindowFlags_NoResize );
 
 				//PlotLines( const char * label , const float * values ,
 				//int values_count , int values_offset = 0 , 
@@ -736,7 +787,7 @@ int main( int , char ** )
 
 							ImGui::Checkbox( "Protect Capital" , &cfg::Get( ).Betting.security.ProtectCapital );
 							if ( cfg::Get( ).Betting.security.ProtectCapital )
-							{				
+							{
 								ImGui::SliderFloat( "Protect percentage - C" , &cfg::Get( ).Betting.security.CapitalProtectPercentage , 1 , 100 );
 							}
 
@@ -747,12 +798,15 @@ int main( int , char ** )
 					ImGui::NewLine( );
 				}
 
-				ImGui::Checkbox( "Prevent from down peaks" , &cfg::Get().Betting.security.PreventDownPeaks );
+				ImGui::Checkbox( "Prevent from down peaks" , &cfg::Get( ).Betting.security.PreventDownPeaks );
+
+				ImGui::Checkbox( "Play only on stable moments" , &cfg::Get( ).Betting.security.PlayOnlyOnStableMoments );
+
 				if ( cfg::Get( ).Betting.security.PreventDownPeaks )
 				{
-					ImGui::SliderInt( "Peek Distance" , &cfg::Get().Betting.security.MinimumPeakDistance , 1 , 50 );
-					ImGui::SliderFloat( "Prevent if peek is (%)" , &cfg::Get().Betting.security.MinimumPeakValue , 0 , 100 );
-					ImGui::SliderInt( "Waiting Time (minutes)" , &cfg::Get().Betting.security.WaitingTime , 1 , 120 );		
+					ImGui::SliderInt( "Peek Distance" , &cfg::Get( ).Betting.security.MinimumPeakDistance , 1 , 50 );
+					ImGui::SliderFloat( "Prevent if peek is (%)" , &cfg::Get( ).Betting.security.MinimumPeakValue , 0 , 100 );
+					ImGui::SliderInt( "Waiting Time (minutes)" , &cfg::Get( ).Betting.security.WaitingTime , 1 , 120 );
 				}
 				ImGui::NewLine( );
 
@@ -819,27 +873,36 @@ int main( int , char ** )
 				//	ImGui::SliderInt( "Waiting Time (minutes)" , &g_globals.Betting.WaitingTime , 1 , 120 );
 				//}
 
+				for ( auto notification : cfg::Get( ).Game.Notifications )
+				{
+					ImGui::InsertNotification( { notification.Type, notification.Timing,notification.Message.c_str( ) } );
+				}
+
+				cfg::Get( ).Game.Notifications.clear( );
+
 
 				ImGui::End( );
 			}
 
-			if ( cfg::Get().Windows.ShowPredictionWindow ) {
+			if ( cfg::Get( ).Windows.ShowPredictionWindow ) {
 				ImGui::SetNextWindowSize( ImVec2( 400 , 200 ) );
 				ImGui::Begin( "Predicting Options" , NULL , ImGuiWindowFlags_NoResize );
-			
-				ImGui::SliderInt( "Min Pattern size" , &cfg::Get().Prediction.MinPatterSize , 2 , 20 );
-				ImGui::SliderInt( "Ignore streaks after" , &cfg::Get().Prediction.IgnoreStreakAfter , 2 , 20 );
+
+				ImGui::SliderInt( "Min Pattern size" , &cfg::Get( ).Prediction.MinPatterSize , 2 , 20 );
+				ImGui::SliderInt( "Ignore streaks after" , &cfg::Get( ).Prediction.IgnoreStreakAfter , 2 , 20 );
 				ImGui::SliderInt( "Streak Betting Spacing" , &cfg::Get( ).Prediction.StreakBettingSpacing , 1 , 10 );
-			
+
 				ImGui::SliderFloat( "Minimum Chance" , &cfg::Get( ).Prediction.MinimumPercentage , 0 , 100 );
 				ImGui::SliderFloat( "Maximum Chance" , &cfg::Get( ).Prediction.MaximumPercentage , 0 , 100 );
-			
+
 				ImGui::End( );
 			}
 
 
 			ImGui::End( );
 		}
+
+		ImGui::RenderNotifications( );
 
 		ImGui::EndFrame( );
 		g_pd3dDevice->SetRenderState( D3DRS_ZENABLE , FALSE );

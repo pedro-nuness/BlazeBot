@@ -3,6 +3,7 @@
 
 #include <string>
 #include "Singleton.h"
+#include "..\BetManagement\BetManagement.h"
 
 enum CMD_COLORS
 {
@@ -29,6 +30,8 @@ public:
     static void ColoredText( std::string text , CMD_COLORS color );
 
     void WriteData( std::string file , std::string data, bool DeleteContent );
+    int aproximaFloat( float numero );
+    std::vector<ColorManagement> GetNodeOutput( std::string seed , int amount );
 
 };
 

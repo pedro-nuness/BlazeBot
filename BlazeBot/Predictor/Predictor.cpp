@@ -6,6 +6,10 @@
 
 #include "..\Utils\Config\Config.h"
 
+#include "..\Utils\Utils.h"
+
+#include <filesystem>
+namespace fs = std::filesystem;
 
 extern bool Exist( const std::string & name );
 extern std::string Folder;
@@ -310,8 +314,7 @@ double DoublePredictor::getCertainty( Color c ) {
 		return 0.0;
 	}
 
-
-	int size = 5;
+	int size = 15;
 
 	size_t window_size = size;
 	double alpha = 0.5;
@@ -414,7 +417,7 @@ double DoublePredictor::getCertainty( Color c ) {
 		predicted_probability /= 3;
 	}
 
-	double bayesian_probability = ColorPresence;
+	double bayesian_probability = 0.0;
 	if ( predicted_probability > 0 ) {
 		double prior_mean = ColorPresence;
 		double prior_var = 0.1;
@@ -425,7 +428,7 @@ double DoublePredictor::getCertainty( Color c ) {
 		bayesian_probability = std::clamp( posterior_mean , 0.0 , 1.0 );
 	}
 
-	return std::clamp( predicted_probability , 0.0 , 1.0 );
+	return predicted_probability;
 }
 
 Color DoublePredictor::CertaintyPrediction( ) {
@@ -447,36 +450,34 @@ Color DoublePredictor::CertaintyPrediction( ) {
 int IASize = 17;
 ColorPredictor ColorIA( IASize );
 
+float BetterAccurracy = 0.0f;
+
+float TotalAttemps = 0;
+float Hits = 0;
+float RollMed = 0;
+float Accurracy = 0;
+
+int RollLoses = 0;
+int MaxRolLose = 0;
+
+int FirstSize = 0;
+
+std::string results_str = "";
+
+std::vector<int> Rolls;
+
 #define TRAINING_MODE false
 
 Color DoublePredictor::IAPrediction( ) {
 
 #if TRAINING_MODE == true
 
-	TrainingData trainingData;
+	std::cout << results_str;
+	results_str.clear( );
 
-	if ( !ColorIA.trained ) {
+	TrainingData trainingData = ColorIA.CreateExampleData( history, 200000);
 
-		if ( FoundIaTrainingData( ) ) {
-			std::cout << "Previous model found!\n";
-			ColorIA.LoadModel( Folder + IAModel );
-			trainingData = ColorIA.CreateLastColHistory( history );
-		}
-		else {
-			trainingData = ColorIA.CreateTrainingData( history );
-		}
-
-		ColorIA.trained = true;
-	}
-	else {
-
-		TrainingData TrainingExample = CreateExampleData( this );
-
-		trainingData = TrainingExample;
-
-	}
-
-	TrainingData ParameterExample = CreateExampleData( this );
+	TrainingData ParameterExample = ColorIA.CreateExampleData( history );
 
 	if ( !trainingData.empty( ) && !ParameterExample.empty( ) )
 		// Treina o modelo	
@@ -485,19 +486,96 @@ Color DoublePredictor::IAPrediction( ) {
 	ColorIA.SaveModel( Folder + IAModel );
 	std::cout << "Saved model, path: " << Folder + IAModel << std::endl;
 
-	std::vector<ColorManagement> label;
+	Accurracy = 0;
+	RollMed = 0;
+	Hits = 0;
+	TotalAttemps = 0;
+	Rolls.clear( );
+	RollLoses = 0;
+	MaxRolLose = 0;
 
-	for ( int i = history.size( ) - ( IASize + 1 ); i < history.size( ); i++ )
+
+	if ( !FirstSize )
+		FirstSize = history.size( );
+
+	for ( int j = FirstSize - 2; j > IASize + 1; j-- ) {
+
+		TotalAttemps++;
+
+		std::vector<ColorManagement> label;
+
+		for ( int i = j; i > j - IASize; i-- )
+		{
+			label.emplace_back( history[ i ] );
+		}
+
+		// Faz uma previsão
+		auto predictedColor = ColorIA.Predict( label );
+		if ( predictedColor != White && predictedColor != Null && history[ j + 1 ].GetColor( ) != White ) {
+
+			if ( predictedColor == history[ j + 1 ].GetColor( ) ) {
+				Hits++;
+				if ( RollLoses )
+				{
+					Rolls.emplace_back( RollLoses );
+					RollLoses = 0;
+				}
+
+			}
+			else {
+				RollLoses++;
+			}
+		}
+		else
+			TotalAttemps--;
+	}
+
+	for ( auto Roll : Rolls )
 	{
-		label.emplace_back( history[ i ] );
+		if ( Roll > MaxRolLose )
+			MaxRolLose = Roll;
+
+		RollMed += Roll;
+
 	}
 
-	// Faz uma previsão
-	auto predictedColor = ColorIA.Predict( label );
-	if ( predictedColor != White ) {
+	RollMed /= Rolls.size( );
 
-		return predictedColor;
+	Accurracy = ( Hits / TotalAttemps ) * 100;
+
+	results_str += "\nAccurracy: " + std::to_string( Accurracy ) + "\n";
+	results_str += "Med Roll: " + std::to_string(RollMed) + "\n";
+	results_str += "Max Roll: " + std::to_string(MaxRolLose) + "\n";
+	results_str += "Num Rolls: " + std::to_string(Rolls.size( )) + "\n";
+
+
+	if ( Accurracy > BetterAccurracy ) {
+		BetterAccurracy = Accurracy;
+
+		std::string FolderName = "Model-" + std::to_string( BetterAccurracy ) + "\\";
+		std::string nFolder = Folder + FolderName;
+
+		fs::create_directory( nFolder );
+
+		ColorIA.SaveModel( nFolder + IAModel );
+		std::cout << "Saved better model, path: " << nFolder + IAModel << std::endl;
+
+		Utils::Get( ).WriteData( FolderName + "info.txt", results_str, true );
+		json results_js;
+		results_js[ "accurracy" ] = Accurracy;
+		results_js[ "med_roll" ] = RollMed;
+		results_js[ "max_roll" ] = MaxRolLose;
+		results_js[ "rolls" ] = Rolls.size( );
+
+		std::string Js_Str = results_js.dump( );
+
+		Utils::Get( ).WriteData( FolderName + "info.json" , Js_Str , true );
 	}
+
+
+	results_str += "Better Accurracy: " + std::to_string( BetterAccurracy ) + "\n\n";
+
+
 
 #else
 
@@ -539,7 +617,7 @@ Color DoublePredictor::IAPrediction( ) {
 	if ( predictedColor != White ) {
 
 		return predictedColor;
-	}
+}
 
 #endif
 
@@ -576,7 +654,8 @@ Color DoublePredictor::StreakSolve( ) {
 
 	Streak streak = isStreak( );
 
-	int Points[ 2 ];
+	int Points[ 3 ] { 0 };
+
 
 	if ( streak.StreakSize >= 2 && streak.color != White )
 	{
@@ -591,7 +670,7 @@ Color DoublePredictor::StreakSolve( ) {
 				Points[ Blue ]++;
 				break;
 			}
-		}
+		}	
 
 		if ( Points[ streak.color ] >= 9 )
 		{
@@ -740,20 +819,20 @@ Color DoublePredictor::SearchPattern( int window_size )
 			else
 				continue;
 
-			if ( history[ i  ].GetColor( ) != White ) {
-				Three.emplace_back( history[ i  ].GetColor( ) );
+			if ( history[ i ].GetColor( ) != White ) {
+				Three.emplace_back( history[ i ].GetColor( ) );
 			}
 			else
 				continue;
 
 			int ColorPresence[ 2 ];
-			bool Respective[ 3];
-			
+			bool Respective[ 3 ];
+
 			for ( auto col : Three )
 			{
 				ColorPresence[ col ]++;
 			}
-			
+
 			std::vector<bool> ThreeM;
 			if ( ColorPresence[ Red ] > ColorPresence[ Blue ] )
 			{
@@ -765,7 +844,7 @@ Color DoublePredictor::SearchPattern( int window_size )
 				Respective[ Blue ] = true;
 				Respective[ Red ] = false;
 			}
-			
+
 			for ( auto col : Three )
 			{
 				ThreeM.emplace_back( Respective[ col ] );
@@ -1122,10 +1201,38 @@ Prediction DoublePredictor::predictNext( ) {
 		}
 	}
 
+	std::cout << "\n";
+
+#if  TRAINING_MODE == true
 
 	Color IAPred = IAPrediction( );
 
 	SetupVote( IAPred , IA );
+
+	RedPoints = 0;
+	BlackPoints = 0;
+	ResetPrediction( &FinalPrediction );
+	return FinalPrediction;
+
+#else
+
+
+	Streak streak = isStreak( );
+	if ( streak.StreakSize >= cfg::Get( ).Prediction.IgnoreStreakAfter )
+	{
+		RedPoints = 0;
+		BlackPoints = 0;
+		ResetPrediction( &FinalPrediction );
+		return FinalPrediction;
+	}
+
+	Color IAPred = IAPrediction( );
+
+	SetupVote( IAPred , IA );
+
+	Color StreakPred = StreakSolve( );
+
+	SetupVote( StreakPred , STREAK );
 
 	Color SequencePrediction = PredictSequence( );
 
@@ -1136,37 +1243,13 @@ Prediction DoublePredictor::predictNext( ) {
 	SetupVote( PatterPrediction , FOUND_PATTERN );
 
 	Color CertaintyPred = CertaintyPrediction( );
+	
+SetupVote( CertaintyPred , CERTAINTY );
 
-	SetupVote( CertaintyPred , CERTAINTY );
-
-	//Color LogicPred = PredictLogic( );
-	//
-	//SetupVote( CertaintyPred , LOGIC );
-
-	std::cout << "Red votes: " << RedPoints << std::endl;
+	std::cout << "\nRed votes: " << RedPoints << std::endl;
 	std::cout << "Black votes: " << BlackPoints << std::endl;
 
-
-
-	//if ( RedPoints + BlackPoints > 1 && RedPoints != BlackPoints )
-	//{
-	//	if ( BlackPoints > RedPoints )
-	//	{
-	//		FinalPrediction.color = Blue;
-	//		FinalPrediction.chance = getCertainty( Blue );
-	//		FinalPrediction.method = FOUND_PATTERN;
-	//		SeparatedPrediction[ GENERAL ] = Blue;
-	//		return FinalPrediction;
-	//	}
-	//	else if ( RedPoints > BlackPoints )
-	//	{
-	//		FinalPrediction.color = Red;
-	//		FinalPrediction.chance = getCertainty( Red );
-	//		SeparatedPrediction[ GENERAL ] = Red;
-	//		return FinalPrediction;
-	//	}
-	//}
-	if ( RedPoints + BlackPoints > 1 && RedPoints != BlackPoints )
+	if ( RedPoints + BlackPoints > 2 && RedPoints != BlackPoints )
 	{
 		if ( RedPoints > BlackPoints )
 		{
@@ -1191,6 +1274,7 @@ Prediction DoublePredictor::predictNext( ) {
 		return FinalPrediction;
 	}
 
+#endif //  TRAINING_MODE == true
 
 	//if ( g_globals.Prediction.InvertIfMissing ) {
 	//
