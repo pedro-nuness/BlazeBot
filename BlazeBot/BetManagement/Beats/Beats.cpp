@@ -6,6 +6,8 @@
 Beats::Beats( int Method ) {
 	this->Hits = 0;
 	this->Misses = 0;
+	this->RawHits = 0;
+	this->RawMisses = 0;
 	this->MaxRollLoseAmount = 0;
 	this->CurrentRollLose = 0;
 	this->WasLoosing = false;
@@ -59,10 +61,6 @@ int Beats::GetMediumRollLoseAmount( ) {
 void Beats::PrintBetLose( int prediction ) {
 
 	std::vector < Color > CurrentGame;
-
-
-
-
 }
 
 void Beats::SetupBeat( int ColorPrediction , int TrueColor )
@@ -71,6 +69,7 @@ void Beats::SetupBeat( int ColorPrediction , int TrueColor )
 		if ( ColorPrediction == TrueColor ) {
 			WasWinning = true;
 			Hits++;
+			RawHits++;
 
 			Results.emplace_back( WON );
 
@@ -106,6 +105,7 @@ void Beats::SetupBeat( int ColorPrediction , int TrueColor )
 				}
 			}
 			Misses++;
+			RawMisses++;
 		}
 	}
 }
@@ -136,15 +136,11 @@ bool Beats::OnBadTrip( ) {
 	return false;
 }
 
-template<typename T>
-T Sqr( T number ) {
 
-	return number * number;
-}
 
 bool Beats::OnBetPattern( int startpos ) {
 
-	int max = 30;
+	int max = cfg::Get( ).Betting.security.StabilityParameterWindow;
 	int count = 0;
 	int Roll = 0;
 	float MedRoll = 0;
@@ -180,14 +176,14 @@ bool Beats::OnBetPattern( int startpos ) {
 	for ( auto roll : roll_loses )
 	{
 		//Squared
-		variancy += Sqr( fabs( roll - MedRoll ) );
+		variancy += maths::Sqr( fabs( roll - MedRoll ) );
 	}
 
 	variancy = Utils::Get( ).aproximaFloat( variancy / roll_loses.size( ) );
 
 	Roll = 0;
 
-	if ( MedRoll <= 2 && MaxRoll <= 4 && variancy <= 2 ) {
+	if ( MedRoll < 2.0 && MaxRoll <= 2.0 && variancy < 1.0 ) {
 
 		for ( int i = Results.size( ) - 1; i > 0; i-- )
 		{
@@ -199,19 +195,21 @@ bool Beats::OnBetPattern( int startpos ) {
 				break;
 		}
 
-		if ( Roll > MedRoll )
+		if ( Roll >= MedRoll )
 			return true;
 	}
+
 	return false;
 }
 
 bool Beats::StableMoment( ) {
 
-	int max = 30;
+	int max = cfg::Get( ).Betting.security.StabilityParameterWindow;
 	int count = 0;
 	int Roll = 0;
 	float MedRoll = 0;
 	int MaxRoll = 0;
+	int CurrentRoll = -1;
 
 	std::vector<float> roll_loses;
 
@@ -224,34 +222,51 @@ bool Beats::StableMoment( ) {
 		{
 			Roll++;
 		}
-		else if ( Roll ) {
-			if ( Roll > MaxRoll )
-				MaxRoll = Roll;
+		else {
 
-			roll_loses.emplace_back( Roll );
+			if ( CurrentRoll == -1 )
+				CurrentRoll = Roll;
 
-			MedRoll += Roll;
-			Roll = 0;
+			if ( Roll ) {
+
+				if ( Roll > MaxRoll )
+					MaxRoll = Roll;
+
+				roll_loses.emplace_back( Roll );
+
+				MedRoll += Roll;
+				Roll = 0;
+			}
 		}
 
 	}
 
-	MedRoll = Utils::Get( ).aproximaFloat( MedRoll / roll_loses.size( ) );
+	MedRoll = MedRoll / roll_loses.size( );
 
 	float variancy = 0.0f;
 
 	for ( auto roll : roll_loses )
 	{
 		//Squared
-		variancy += Sqr( fabs( roll - MedRoll ) );
+		variancy += maths::Sqr( fabs( roll - MedRoll ) );
 	}
 
-	variancy = Utils::Get( ).aproximaFloat( variancy / roll_loses.size( ) );
+	variancy = variancy / roll_loses.size( );
 
-	Roll = 0;
+	if ( MedRoll < 2.0 && MaxRoll <= 2.0 && variancy < 1.0 )
+	{
+		if ( CurrentRoll )
+		{
+			if ( CurrentRoll <= MedRoll )
+			{
+				return true;
+			}
 
-	if ( MedRoll <= 2 && MaxRoll <= 4 && variancy <= 2 )
+			return false;
+		}
+
 		return true;
+	}
 
 	return false;
 }
@@ -305,6 +320,33 @@ int Beats::GetHits( ) {
 int Beats::GetMisses( ) {
 	return this->Misses;
 }
+
+int Beats::GetRawHitsPercentage( ) {
+	float Percentage = 0.0;
+
+	if ( RawHits + RawMisses ) {
+		float Hit = RawHits;
+		float Miss = RawHits;
+		float Total = Hit + Miss;
+		Percentage = ( Miss / Total ) * 100;
+	}
+
+	return Utils::Get( ).aproximaFloat( Percentage );
+}
+
+int Beats::GetRawMissesPercentage( ) {
+	float Percentage = 0.0;
+
+	if ( RawHits + RawMisses ) {
+		float Hit = RawHits;
+		float Miss = RawHits;
+		float Total = Hit + Miss;
+		Percentage = ( Hit / Total ) * 100;
+	}
+
+	return Utils::Get( ).aproximaFloat( Percentage );
+}
+
 
 int Beats::GetHitsPercentage( ) {
 	float Percentage = 0.0;

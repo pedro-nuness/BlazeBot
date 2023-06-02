@@ -265,8 +265,10 @@ void SetupAutoMessages( ) {
 				{
 					Color = dpp::colors::green;
 				}
-				else
+				else if ( Profit < 0 )
 					Color = dpp::colors::red;
+				else
+					Color = dpp::colors::yellow;
 
 
 

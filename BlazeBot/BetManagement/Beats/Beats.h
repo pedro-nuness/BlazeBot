@@ -6,6 +6,8 @@
 class Beats {
     int Hits = 0;
     int Misses = 0;
+    int RawHits = 0;
+    int RawMisses = 0;
     int MaxRollLoseAmount = 0;
     int CurrentRollLose;
     bool WasWinning = false;
@@ -14,6 +16,10 @@ class Beats {
     std::vector<int> Results;
     bool BadTrip = false;
     int Method;
+
+    float OldMed = 0.0f;
+    float OldVariancy = 0.0f;
+    float OldMax = 0.0f;
 
 public:
     Beats(  int Method );
@@ -34,6 +40,8 @@ public:
     int GetHits( );
     int GetMisses( );
     int GetHitsPercentage( );
+    int GetRawHitsPercentage( );
+    int GetRawMissesPercentage( );
     int GetTotal( );
     int GetMissesPercentage( );
 };

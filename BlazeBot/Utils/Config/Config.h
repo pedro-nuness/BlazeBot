@@ -88,12 +88,16 @@ public:
 
 			bool PlayOnlyOnStableMoments = false;
 
+			bool RecoveryModeIfDownPeak = false;
+			float DownPercentage = 30.0f;
 
 			bool WaitIfLosing = false;
 			int WaitAfterXLose = 3;
 			int WaitAmount = 5;
 			bool ResetCountIfWin = false;
 			bool WaitAgainIfLose = false;
+
+			int StabilityParameterWindow = 30;
 
 		}security;
 

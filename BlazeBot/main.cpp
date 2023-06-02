@@ -154,8 +154,10 @@ void save_cfg( bool read ) {
 		{
 			betManager.CurrentPlayer = Player( cfg::Get( ).Game.InitialBalance );
 			betManager.FullPlayer = Player( cfg::Get( ).Game.InitialBalance );
+
 			betManager.CurrentPlayer.SetBalance( cfg::Get( ).Game.CurrentBalance );
 			betManager.FullPlayer.SetBalance( cfg::Get( ).Game.FullBalance );
+
 			betManager.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
 			betManager.FullBalanceHistory = cfg::Get( ).Game.FullBalanceHistory;
 
@@ -469,6 +471,9 @@ int main( int , char ** )
 
 				ImGui::PlotLines( "##fullsimulatedgraph" , SimulationbetManager.FullBalanceHistory.data( ) , SimulationbetManager.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
 
+				ImGui::NewLine( );
+				ImGui::Text( Str( "BankProfit: " , std::to_string( SimulationbetManager.BankProfit ) ).c_str( ) );
+
 				ImGui::End( );
 
 			}
@@ -625,6 +630,7 @@ int main( int , char ** )
 				ImGui::Text( Str( "Balance: " , std::to_string( ( int ) betManager.CurrentPlayer.GetBalance( ) ) ).c_str( ) );
 				ImGui::Text( Str( "Initial Balance: " , std::to_string( ( int ) betManager.CurrentPlayer.GetInitialMoney( ) ) ).c_str( ) );
 				ImGui::Text( Str( "Profit: " , std::to_string( ( int ) betManager.CurrentPlayer.GetProfit( ) ) ).c_str( ) );
+
 
 				if ( current_prediction.DidBet( ) ) {
 
@@ -798,17 +804,26 @@ int main( int , char ** )
 					ImGui::NewLine( );
 				}
 
+				ImGui::Checkbox( "Recovery mode" , &cfg::Get( ).Betting.security.RecoveryModeIfDownPeak );
+				if ( cfg::Get( ).Betting.security.RecoveryModeIfDownPeak )
+				{
+					ImGui::SliderFloat( "Recovery mode if lose" , &cfg::Get( ).Betting.security.DownPercentage , 0 , 100 );
+				}
+
 				ImGui::Checkbox( "Prevent from down peaks" , &cfg::Get( ).Betting.security.PreventDownPeaks );
-
-				ImGui::Checkbox( "Play only on stable moments" , &cfg::Get( ).Betting.security.PlayOnlyOnStableMoments );
-
 				if ( cfg::Get( ).Betting.security.PreventDownPeaks )
 				{
 					ImGui::SliderInt( "Peek Distance" , &cfg::Get( ).Betting.security.MinimumPeakDistance , 1 , 50 );
 					ImGui::SliderFloat( "Prevent if peek is (%)" , &cfg::Get( ).Betting.security.MinimumPeakValue , 0 , 100 );
 					ImGui::SliderInt( "Waiting Time (minutes)" , &cfg::Get( ).Betting.security.WaitingTime , 1 , 120 );
 				}
+
+				ImGui::Checkbox( "Play only on stable moments" , &cfg::Get( ).Betting.security.PlayOnlyOnStableMoments );
+
+				
 				ImGui::NewLine( );
+
+				ImGui::SliderInt( "Stability Parameter Window" , &cfg::Get( ).Betting.security.StabilityParameterWindow , 1 , 50 );
 
 				ImGui::SliderFloat( "Target Percentage" , &cfg::Get( ).Betting.TargetParcentage , 0 , 100 );
 				ImGui::SliderFloat( "Stop if lower than %" , &cfg::Get( ).Betting.StopPercentage , 0 , 100 );
@@ -873,13 +888,6 @@ int main( int , char ** )
 				//	ImGui::SliderInt( "Waiting Time (minutes)" , &g_globals.Betting.WaitingTime , 1 , 120 );
 				//}
 
-				for ( auto notification : cfg::Get( ).Game.Notifications )
-				{
-					ImGui::InsertNotification( { notification.Type, notification.Timing,notification.Message.c_str( ) } );
-				}
-
-				cfg::Get( ).Game.Notifications.clear( );
-
 
 				ImGui::End( );
 			}
@@ -898,6 +906,13 @@ int main( int , char ** )
 				ImGui::End( );
 			}
 
+
+			for ( auto notification : cfg::Get( ).Game.Notifications )
+			{
+				ImGui::InsertNotification( { notification.Type, notification.Timing,notification.Message.c_str( ) } );
+			}
+
+			cfg::Get( ).Game.Notifications.clear( );
 
 			ImGui::End( );
 		}

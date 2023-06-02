@@ -428,7 +428,7 @@ double DoublePredictor::getCertainty( Color c ) {
 		bayesian_probability = std::clamp( posterior_mean , 0.0 , 1.0 );
 	}
 
-	return predicted_probability;
+	return bayesian_probability;
 }
 
 Color DoublePredictor::CertaintyPrediction( ) {
@@ -460,6 +460,8 @@ float Accurracy = 0;
 int RollLoses = 0;
 int MaxRolLose = 0;
 
+float Variancy = 0;
+
 int FirstSize = 0;
 
 std::string results_str = "";
@@ -468,14 +470,24 @@ std::vector<int> Rolls;
 
 #define TRAINING_MODE false
 
+bool loaded = false;
+
 Color DoublePredictor::IAPrediction( ) {
 
 #if TRAINING_MODE == true
+	if ( !loaded ) {
+		if ( ColorIA.TraningExist( ) )
+		{
+			ColorIA.LoadModel( Folder + IAModel );
+		}
+
+		loaded = true;
+	}
 
 	std::cout << results_str;
 	results_str.clear( );
 
-	TrainingData trainingData = ColorIA.CreateExampleData( history, 200000);
+	TrainingData trainingData = ColorIA.CreateExampleData( history , 200000 );
 
 	TrainingData ParameterExample = ColorIA.CreateExampleData( history );
 
@@ -493,7 +505,7 @@ Color DoublePredictor::IAPrediction( ) {
 	Rolls.clear( );
 	RollLoses = 0;
 	MaxRolLose = 0;
-
+	Variancy = 0;
 
 	if ( !FirstSize )
 		FirstSize = history.size( );
@@ -543,11 +555,19 @@ Color DoublePredictor::IAPrediction( ) {
 
 	Accurracy = ( Hits / TotalAttemps ) * 100;
 
-	results_str += "\nAccurracy: " + std::to_string( Accurracy ) + "\n";
-	results_str += "Med Roll: " + std::to_string(RollMed) + "\n";
-	results_str += "Max Roll: " + std::to_string(MaxRolLose) + "\n";
-	results_str += "Num Rolls: " + std::to_string(Rolls.size( )) + "\n";
+	for ( auto roll : Rolls )
+	{
+		//Squared
+		Variancy += maths::Sqr( fabs( roll - RollMed ) );
+	}
 
+	Variancy = Variancy / Rolls.size( );
+
+	results_str += "\nAccurracy: " + std::to_string( Accurracy ) + "\n";
+	results_str += "Med Roll: " + std::to_string( RollMed ) + "\n";
+	results_str += "Max Roll: " + std::to_string( MaxRolLose ) + "\n";
+	results_str += "Num Rolls: " + std::to_string( Rolls.size( ) ) + "\n";
+	results_str += "Variancy: " + std::to_string( Variancy ) + "\n";
 
 	if ( Accurracy > BetterAccurracy ) {
 		BetterAccurracy = Accurracy;
@@ -560,11 +580,12 @@ Color DoublePredictor::IAPrediction( ) {
 		ColorIA.SaveModel( nFolder + IAModel );
 		std::cout << "Saved better model, path: " << nFolder + IAModel << std::endl;
 
-		Utils::Get( ).WriteData( FolderName + "info.txt", results_str, true );
+		Utils::Get( ).WriteData( FolderName + "info.txt" , results_str , true );
 		json results_js;
 		results_js[ "accurracy" ] = Accurracy;
 		results_js[ "med_roll" ] = RollMed;
 		results_js[ "max_roll" ] = MaxRolLose;
+		results_js[ "variancy" ] = Variancy;
 		results_js[ "rolls" ] = Rolls.size( );
 
 		std::string Js_Str = results_js.dump( );
@@ -572,10 +593,7 @@ Color DoublePredictor::IAPrediction( ) {
 		Utils::Get( ).WriteData( FolderName + "info.json" , Js_Str , true );
 	}
 
-
 	results_str += "Better Accurracy: " + std::to_string( BetterAccurracy ) + "\n\n";
-
-
 
 #else
 
@@ -617,7 +635,7 @@ Color DoublePredictor::IAPrediction( ) {
 	if ( predictedColor != White ) {
 
 		return predictedColor;
-}
+	}
 
 #endif
 
@@ -670,7 +688,7 @@ Color DoublePredictor::StreakSolve( ) {
 				Points[ Blue ]++;
 				break;
 			}
-		}	
+		}
 
 		if ( Points[ streak.color ] >= 9 )
 		{
@@ -683,7 +701,6 @@ Color DoublePredictor::StreakSolve( ) {
 	}
 
 	return Null;
-
 
 	//Streak BeforeStreak = isStreak( streak.StreakSize );
 	//if ( streak.StreakSize >= 2 ) {
@@ -773,9 +790,8 @@ Color DoublePredictor::SearchPattern( int window_size )
 			LastThree.emplace_back( history[ i ].GetColor( ) );
 		}
 
-		int Presence[ 2 ];
-		bool Correpondente[ 3 ];
-
+		int Presence[ 3 ] { 0 };
+		bool Correpondente[ 3 ] { false };
 
 		for ( auto col : LastThree )
 		{
@@ -803,7 +819,7 @@ Color DoublePredictor::SearchPattern( int window_size )
 
 		std::vector<std::pair<std::vector<bool> , bool>> Pairs;
 
-		for ( int i = history.size( ) - 13; i < history.size( ) - window_size; i++ )
+		for ( int i = history.size( ) - ( 15 - window_size ); i < history.size( ) - window_size; i++ )
 		{
 			std::vector<int> Three;
 
@@ -825,8 +841,8 @@ Color DoublePredictor::SearchPattern( int window_size )
 			else
 				continue;
 
-			int ColorPresence[ 2 ];
-			bool Respective[ 3 ];
+			int ColorPresence[ 3 ] { 0 };
+			bool Respective[ 3 ] { false };
 
 			for ( auto col : Three )
 			{
@@ -980,6 +996,9 @@ void DoublePredictor::SetupVote( Color c , int ID ) {
 	case STREAK:
 		Name = "STREAK";
 		break;
+	case GENERAL:
+		Name = "GENERAL";
+		break;
 		//case LOGIC:
 		//	Name = "LOGIC";
 		//	break;
@@ -994,18 +1013,18 @@ void DoublePredictor::SetupVote( Color c , int ID ) {
 			}
 			else if ( c == Blue ) {
 				BlackPoints++;
-				std::cout << Name << " vote: black\n";
+				std::cout << Name << " vote: black \n";
 			}
 		}
 		else if ( !SeparatedBeats[ ID ].OnBadTrip( ) )
 		{
 			if ( c == Red ) {
 				RedPoints++;
-				std::cout << Name << " vote: red\n";
+				std::cout << Name << " vote: red ( " << SeparatedBeats[ ID ].GetRawHitsPercentage( ) << " )\n";
 			}
 			else if ( c == Blue ) {
 				BlackPoints++;
-				std::cout << Name << " vote: black\n";
+				std::cout << Name << " vote: black ( " << SeparatedBeats[ ID ].GetRawHitsPercentage( ) << " )\n";
 			}
 		}
 		else {
@@ -1242,27 +1261,33 @@ Prediction DoublePredictor::predictNext( ) {
 
 	SetupVote( PatterPrediction , FOUND_PATTERN );
 
-	Color CertaintyPred = CertaintyPrediction( );
-	
-SetupVote( CertaintyPred , CERTAINTY );
+	//Color CertaintyPred = CertaintyPrediction( );
+
+	//SetupVote( CertaintyPred , CERTAINTY );
 
 	std::cout << "\nRed votes: " << RedPoints << std::endl;
 	std::cout << "Black votes: " << BlackPoints << std::endl;
 
-	if ( RedPoints + BlackPoints > 2 && RedPoints != BlackPoints )
+	Color GeneralPred = Null;
+
+	if ( RedPoints + BlackPoints >= 2 && RedPoints != BlackPoints )
 	{
 		if ( RedPoints > BlackPoints )
 		{
-			FinalPrediction.color = Red;
-			FinalPrediction.chance = getCertainty( Red );
-			FinalPrediction.method = GENERAL;
-			SeparatedPrediction[ GENERAL ] = Red;
+			GeneralPred = Red;
 		}
 		else if ( BlackPoints > RedPoints ) {
-			FinalPrediction.color = Blue;
-			FinalPrediction.chance = getCertainty( Blue );
+
+			GeneralPred = Blue;
+		}
+
+		SetupVote( GeneralPred , GENERAL );
+
+		if ( GeneralPred != Null )
+		{
+			FinalPrediction.color = GeneralPred;
+			FinalPrediction.chance = getCertainty( GeneralPred );
 			FinalPrediction.method = GENERAL;
-			SeparatedPrediction[ GENERAL ] = Blue;
 		}
 
 		return FinalPrediction;

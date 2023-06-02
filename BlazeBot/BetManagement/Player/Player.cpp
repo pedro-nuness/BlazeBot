@@ -39,6 +39,12 @@ void Player::IncreaseBalance( float value ) {
 
 void Player::DecreaseBalance( float value ) {
     this->CurrentMoney = this->CurrentMoney - value;
+    if ( this->CurrentMoney < this->LowestMoney )
+        this->LowestMoney = CurrentMoney;
+}
+
+float Player::GetLowestMoney( ) {
+    return this->LowestMoney;
 }
 
 void Player::SetBalance( float balance ) {

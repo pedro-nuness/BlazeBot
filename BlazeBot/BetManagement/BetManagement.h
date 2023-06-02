@@ -194,6 +194,8 @@ private:
 
 	void BetOnColor( Color c , float amount );
 
+	int RequiredPlays = 0;
+	void EndBet( bool Leave = false );
 public:
 	bool StartBets = false;
 	BetManager( const std::string & filename , DoublePredictor * predictor );
@@ -203,16 +205,19 @@ public:
 	std::chrono::high_resolution_clock::time_point StartWaitingTime;
 	std::chrono::high_resolution_clock::time_point LastColorAddTime;
 
+	float BankProfit = -1000.f;
 	Player CurrentPlayer = Player( -1 );
 	Player FullPlayer = Player( -1 );
+	Player SimulatedPlayer = Player( -1 );
+
 	std::vector<float> BalanceHistory;
 	std::vector<float> FullBalanceHistory;
+
 	std::vector<Beats> SeparatedBeats { Beats( ) };
 
 	Bet GetCurrentPrediction( );
 	Bet GetLastPrediction( );
 	Bet PredictBets( Prediction predict );
-
 
 	DoublePredictor * GetPredictor( )
 	{
@@ -265,14 +270,11 @@ public:
 	void ManageBets( );
 	void SimulateGame(  std::vector<ColorManagement> GameHistory , std::vector<ColorManagement> Data );
 	void StartGameSimulation( BetManager TrueBetManager);
-	Player SimulatedPlayer = Player( -1 );
 	void addColor( json play , bool write = true );
 	void ClearData( );
-	void ClearFull( );
 	void SetCurrentPrediction( Bet bet );
 	void DoBet( );
 	
-
 
 	Color nextBet( Color prediction , float predictionChance , double * success );
 

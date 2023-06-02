@@ -2009,7 +2009,7 @@ ImFontAtlas::~ImFontAtlas()
     Clear();
 }
 
-void    ImFontAtlas::ClearInputData()
+void ImFontAtlas::ClearInputData()
 {
     IM_ASSERT(!Locked && "Cannot modify a locked ImFontAtlas between NewFrame() and EndFrame/Render()!");
     for (int i = 0; i < ConfigData.Size; i++)

@@ -14,6 +14,7 @@ using json = nlohmann::json;
 
 
 std::string BETTING_CLASS = { "betting" };
+std::string WINDOW_CLASS = { "windows" };
 std::string PREDICTING_CLASS = { "predicting" };
 std::string GAME_CLASS = { "game" };
 
@@ -258,6 +259,8 @@ void AddVars( ) {
 	Add( &cfg::Get( ).Betting.security.MinimumPeakDistance , I , "MinimumPeakDistance" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.WaitingTime , I , "WaitingTime" , bSecurityClass );
 
+	Add( &cfg::Get( ).Betting.security.StabilityParameterWindow , I , "StabilityParameterWindow" , bSecurityClass );
+
 	Add( &cfg::Get( ).Betting.security.ProtectProfit , B , "ProtectProfit" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.ProtectIfProfit ,F , "ProtectIfProfit" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.ProfitProtectPercentage , F , "ProfitProtectPercentage" , bSecurityClass );
@@ -268,6 +271,8 @@ void AddVars( ) {
 	Add( &cfg::Get( ).Betting.security.WaitAfterXLose , I , "WaitAfterXLose" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.WaitAmount , I , "WaitAmount" , bSecurityClass );
 
+	Add( &cfg::Get( ).Betting.security.RecoveryModeIfDownPeak , B , "RecoveryModeIfDownPeak" , bSecurityClass );
+	Add( &cfg::Get( ).Betting.security.DownPercentage , F , "DownPercentage" , bSecurityClass );
 
 	Add( &cfg::Get( ).Betting.security.ProtectCapital , B , "ProtectCapital" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.PredictDownPeaks , B , "PredictDownPeaks" , bSecurityClass );
@@ -329,6 +334,18 @@ void AddVars( ) {
 	Add( &cfg::Get( ).Game.InitialBalance , F, "InitialBalance" , bGameClass );
 	Add( &cfg::Get( ).Game.CurrentBalance , F , "CurrentBalance" , bGameClass );
 	Add( &cfg::Get( ).Game.FullBalance , F , "FullBalance" , bGameClass );
+
+	std::vector<std::string> bWindowsClass = { WINDOW_CLASS };
+
+	Add( &cfg::Get( ).Windows.AccurracyWindow , B , "AccurracyWindow" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.BalanceWindow , B , "BalanceWindow" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.FullGraph , B , "FullGraph" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.HistoryWindow , B , "HistoryWindow" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.InformationWindow , B , "InformationWindow" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.ShowBetsWindow , B , "ShowBetsWindow" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.ShowPredictionWindow , B , "ShowPredictionWindow" , bWindowsClass );
+	Add( &cfg::Get( ).Windows.SimulationGraph , B , "SimulationGraph" , bWindowsClass );
+
 
 	//////////////////////// aim ///////////////
 
