@@ -28,6 +28,7 @@ public:
     void PrintBetLose( int prediction );
     void SetupBeat( int ColorPrediction , int TrueColor );
     int DistanceBetweenRolls( );
+    bool NotUnstable( );
     bool StableMoment( );
     bool OnBadTrip( );
     bool OnBetPattern( int startpos = 1);

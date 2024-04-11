@@ -278,6 +278,11 @@ void AddVars( ) {
 	Add( &cfg::Get( ).Betting.security.PredictDownPeaks , B , "PredictDownPeaks" , bSecurityClass );
 	Add( &cfg::Get( ).Betting.security.CapitalProtectPercentage , F , "CapitalProtectPercentage" , bSecurityClass );
 
+	Add( &cfg::Get( ).Betting.security.MaxMedRoll , F , "MaxMedRoll" , bSecurityClass );
+	Add( &cfg::Get( ).Betting.security.MaxRoll , F , "MaxRoll" , bSecurityClass );
+	Add( &cfg::Get( ).Betting.security.MaxVariancy , F , "MaxVariancy" , bSecurityClass );
+	Add( &cfg::Get( ).Betting.security.RollLimit , I , "RollLimit" , bSecurityClass );
+
 	std::vector<std::string> bAutomaticClass = { BETTING_CLASS, "Automatic" };
 
 	Add( &cfg::Get( ).Betting.automatic.SimulateBet , B , "SimulateBet" , bAutomaticClass );
@@ -346,44 +351,6 @@ void AddVars( ) {
 	Add( &cfg::Get( ).Windows.ShowPredictionWindow , B , "ShowPredictionWindow" , bWindowsClass );
 	Add( &cfg::Get( ).Windows.SimulationGraph , B , "SimulationGraph" , bWindowsClass );
 
-
-	//////////////////////// aim ///////////////
-
-	//Add( &cfg::Get( ).aim_assist.Enable , B , "Enable" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.pSilent , B , "pSilent" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.pSilentHitbox , I , "pSilentHitbox" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.pSilentFOV , I , "pSilentFOV" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.pSilentMinBulletDistance , I , "pSilentMinBulletDistance" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.pSilentHitchance , I , "pSilentHitchance" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.DrawpSilentFov , B , "DrawpSilentFov" , bAimClass );
-	//
-	//Add( &cfg::Get( ).aim_assist.Aimbot , B , "Aimbot" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.AimbotHitbox , I , "AimbotHitbox" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.AimbotFOV , I , "AimbotFOV" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.DrawAimbotFov , B , "DrawAimbotFov" , bAimClass );
-	//
-	//
-	//Add( &cfg::Get( ).aim_assist.DynamicFov , B , "DynamicFov" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.Hitmarker , B , "Hitmarker" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.HitmarkerSize , F , "HitmarkerSize" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.MarkerThickness , I , "MarkerThickness" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.MarkerStyle , I , "MarkerStyle" , bAimClass );
-	//Add( &cfg::Get( ).aim_assist.MarkerSpeed , F , "MarkerSpeed" , bAimClass );
-	//
-	//Add( &cfg::Get( ).aim_assist.Friends , B , "Friends" , bAimClass );
-	//
-	//AddColor( &cfg::Get( ).aim_assist.FriendsColor , C , "FriendsColor" , bAimClass );
-	//AddColor( &cfg::Get( ).aim_assist.HitmarkerColor , C , "HitmarkerColor" , bAimClass );
-	//AddColor( &cfg::Get( ).aim_assist.pSilentColor , C , "pSilentColor" , bAimClass );
-	//AddColor( &cfg::Get( ).aim_assist.AimbotColor , C , "AimbotColor" , bAimClass );
-	//
-	/////////////////////////////////////////////////
-	//
-	//std::vector<std::string> bEspClass = { "esp" };
-	//
-	//Add( &cfg::Get( ).esp.Enable , B , "Enable" , bEspClass );
-
-	/////////////Entities///////////////////////////
 }
 
 

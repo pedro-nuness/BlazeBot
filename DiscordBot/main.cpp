@@ -24,26 +24,53 @@ dpp::snowflake ResultsChannel;
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-bool CheckFile( std::string file , json & js )
+
+
+
+
+
+
+std::vector<json> CheckFile( std::string file)
 {
+	std::string content = "";
+
+	std::vector<json> json_output;
+
 	if ( fs::exists( file ) ) {
 		Sleep( 3000 );
 
 		std::ifstream input_file( file );
+		if ( input_file.is_open( ) ) {
 
-		input_file >> js;
-		return true;
+			json jsonObject;
+
+			try {
+				input_file >> jsonObject;
+				while ( !jsonObject.empty( ) ) {
+					json_output.push_back( jsonObject );
+					input_file >> jsonObject;
+				}
+
+				input_file.close( );
+			}
+			catch ( const json::exception & e ) {
+				std::cerr << "Erro ao ler o arquivo JSON: " << e.what( ) << std::endl;
+				input_file.close( );
+			}
+		}
+		else {
+			std::cout << "Can't open file!\n";
+		}
 	}
 
-	return false;
+	return json_output;
 }
 
 void ReadConfig( ) {
 
 	json js;
 
-	if ( !CheckFile( "C:\\Blaze\\BotConfig.json" , js ) )
-		return;
+	
 
 	StartedPrediction = js[ "started" ];
 	int PredC = js[ "predict" ];
@@ -98,136 +125,139 @@ void SetupAutoMessages( ) {
 
 			if ( PredictChannel ) {
 
-				json js;
+	
+				auto results = CheckFile( "C:\\Blaze\\import.json" );
 
-				if ( !CheckFile( "C:\\Blaze\\import.json" , js ) ) {
+				if ( results.empty( ) )
 					continue;
-				}
 
-				std::string seed = js[ "server_seed" ];
+				for ( auto js : results ) {
 
-				bool ItsBet = js[ "betted" ];
-				bool CoverWhite = js[ "coverwhite" ];
+					std::string seed = js[ "server_seed" ];
 
-				if ( seed != old_seed/* && ( ItsBet || CoverWhite )*/ ) {
+					bool ItsBet = js[ "betted" ];
+					bool CoverWhite = js[ "coverwhite" ];
 
-					old_seed = seed;
+					if ( seed != old_seed/* && ( ItsBet || CoverWhite )*/ ) {
 
-					int color = js[ "color" ];
-					float balance = js[ "balance" ];
-					float initbalance = js[ "initialbalance" ];
-					float BetValue = js[ "betvalue" ];
-					float WhiteBetValue = js[ "whitebetvalue" ];
-					std::vector<int>history = js[ "history" ];;
-					float profit = balance - initbalance;
-					int Accuracy = js[ "accuracy" ];
+						old_seed = seed;
+
+						int color = js[ "color" ];
+						float balance = js[ "balance" ];
+						float initbalance = js[ "initialbalance" ];
+						float BetValue = js[ "betvalue" ];
+						float WhiteBetValue = js[ "whitebetvalue" ];
+						std::vector<int>history = js[ "history" ];;
+						float profit = balance - initbalance;
+						int Accuracy = js[ "accuracy" ];
 
 
-					std::string prediction_colors = "";
-					std::string bet_value = "";
-					std::string history_str = "";
-					std::string balance_str;
-					std::string accuracy_str = std::to_string( Accuracy ) + "%";
+						std::string prediction_colors = "";
+						std::string bet_value = "";
+						std::string history_str = "";
+						std::string balance_str;
+						std::string accuracy_str = std::to_string( Accuracy ) + "%";
 
-					balance_str = "Balance: " + std::to_string( int( balance ) ) + "\n";
-					balance_str += "Initial Balance: " + std::to_string( int( initbalance ) ) + "\n";
-					balance_str += "Profit: " + std::to_string( int( profit ) ) + "\n";
+						balance_str = "Balance: " + std::to_string( int( balance ) ) + "\n";
+						balance_str += "Initial Balance: " + std::to_string( int( initbalance ) ) + "\n";
+						balance_str += "Profit: " + std::to_string( int( profit ) ) + "\n";
 
-					for ( auto col : history )
-					{
-						switch ( col )
+						for ( auto col : history )
 						{
-						case 0:
-							history_str += ":white_circle:";
-							break;
-						case 1:
-							history_str += ":red_circle:";
-							break;
-						case 2:
-							history_str += ":black_circle:";
-							break;
+							switch ( col )
+							{
+							case 0:
+								history_str += ":white_circle:";
+								break;
+							case 1:
+								history_str += ":red_circle:";
+								break;
+							case 2:
+								history_str += ":black_circle:";
+								break;
+							}
 						}
-					}
 
 
-					if ( ItsBet )
-					{
-						switch ( color )
+						if ( ItsBet )
 						{
-						case 0:
+							switch ( color )
+							{
+							case 0:
+								prediction_colors += ":white_circle:";
+								break;
+							case 1:
+								prediction_colors += ":red_circle:";
+								break;
+							case 2:
+								prediction_colors += ":black_circle:";
+								break;
+							}
+
+							bet_value += "Bet: " + std::to_string( int( BetValue ) ) + "\n";
+
+						}
+
+						if ( CoverWhite ) {
 							prediction_colors += ":white_circle:";
-							break;
-						case 1:
-							prediction_colors += ":red_circle:";
-							break;
-						case 2:
-							prediction_colors += ":black_circle:";
-							break;
+							bet_value += "White Bet: " + std::to_string( int( WhiteBetValue ) ) + "\n";
 						}
 
-						bet_value += "Bet: " + std::to_string( int( BetValue ) ) + "\n";
+						std::vector<float> BalanceHistory;
 
+						for ( auto value : js[ "balancehistory" ] ) {
+							BalanceHistory.emplace_back( value );
+						}
+
+						plot( BalanceHistory , "k" );
+
+						save( "graph.jpg" );
+						std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
+
+						dpp::embed embed = dpp::embed( ).
+							set_color( dpp::colors::red ).
+							set_title( "Prediction" ).
+							set_description( "Created by Kun#6394" ).
+							set_thumbnail( "https://blaze.com/images/logo-icon.png" ).
+							add_field(
+								"Color Prediction" ,
+								prediction_colors
+							).
+
+							add_field(
+								"Game History" ,
+								history_str ,
+								true
+							).
+							add_field(
+								"Accuracy" ,
+								accuracy_str ,
+								true
+							).
+							add_field(
+								"Bet value" ,
+								bet_value ,
+								false
+							).
+							add_field(
+								"Balance" ,
+								balance_str ,
+								false
+							).
+							//set_image( "https://dpp.dev/DPP-Logo.png" ).
+							set_footer( dpp::embed_footer( ).set_text( "Creation Time " ).set_icon( "https://blaze.com/images/logo-icon.png" ) ).
+							set_timestamp( time( 0 ) );
+
+
+						dpp::message msg( PredictChannel , embed );
+
+						// attach the image to the message
+						msg.add_file( "image.jpg" , dpp::utility::read_file( "graph.jpg" ) );
+						embed.set_image( "attachment://image.jpg" ); // reference to the attached file
+
+						// send the message
+						bot.message_create( msg );
 					}
-
-					if ( CoverWhite ) {
-						prediction_colors += ":white_circle:";
-						bet_value += "White Bet: " + std::to_string( int( WhiteBetValue ) ) + "\n";
-					}
-
-					std::vector<float> BalanceHistory;
-
-					for ( auto value : js[ "balancehistory" ] ) {
-						BalanceHistory.emplace_back( value );
-					}
-
-					plot( BalanceHistory , "k" );
-
-					save( "graph.jpg" );
-					std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
-
-					dpp::embed embed = dpp::embed( ).
-						set_color( dpp::colors::red ).
-						set_title( "Prediction" ).
-						set_description( "Created by Kun#6394" ).
-						set_thumbnail( "https://blaze.com/images/logo-icon.png" ).
-						add_field(
-							"Color Prediction" ,
-							prediction_colors
-						).
-
-						add_field(
-							"Game History" ,
-							history_str ,
-							true
-						).
-						add_field(
-							"Accuracy" ,
-							accuracy_str ,
-							true
-						).
-						add_field(
-							"Bet value" ,
-							bet_value ,
-							false
-						).
-						add_field(
-							"Balance" ,
-							balance_str ,
-							false
-						).						
-						//set_image( "https://dpp.dev/DPP-Logo.png" ).
-						set_footer( dpp::embed_footer( ).set_text( "Creation Time " ).set_icon( "https://blaze.com/images/logo-icon.png" ) ).
-						set_timestamp( time( 0 ) );
-
-			
-					dpp::message msg( PredictChannel , embed );
-
-					// attach the image to the message
-					msg.add_file( "image.jpg" , dpp::utility::read_file( "graph.jpg" ) );				
-					embed.set_image( "attachment://image.jpg" ); // reference to the attached file
-			
-					// send the message
-					bot.message_create( msg );
 				}
 			}
 
@@ -240,66 +270,69 @@ void SetupAutoMessages( ) {
 					result[ "exit" ] = Leave;
 				*/
 
-				json js;
+				auto results = CheckFile( "C:\\Blaze\\result_import.json" );
 
 
-				if ( !CheckFile( "C:\\Blaze\\result_import.json" , js ) )
+				if ( results.empty( ) )
 					continue;
 
+				for ( auto js : results ) {
 
-				float Balance = js[ "balance" ];
-				float InitBalance = js[ "initialbalance" ];
-				float Profit = js[ "profit" ];
-				int ProfitPercentage = int( ( Profit / InitBalance ) * 100 );
-				bool Exit = js[ "exit" ];
 
-				std::string BalanceStr = "Final balance: " + std::to_string( ( int ) Balance ) + "\n";
-				BalanceStr += "Start balance: " + std::to_string( ( int ) InitBalance ) + "\n";
+					float Balance = js[ "balance" ];
+					float InitBalance = js[ "initialbalance" ];
+					float Profit = js[ "profit" ];
+					int ProfitPercentage = int( ( Profit / InitBalance ) * 100 );
+					bool Exit = js[ "exit" ];
 
-				std::string ProfitStr = "Profit: " + std::to_string( ( int ) Profit ) + " ( " + std::to_string( ProfitPercentage ) + "% )";
-				std::string Leave = Exit ? "Yes" : "No";
+					std::string BalanceStr = "Final balance: " + std::to_string( ( int ) Balance ) + "\n";
+					BalanceStr += "Start balance: " + std::to_string( ( int ) InitBalance ) + "\n";
 
-				uint32_t Color;
+					std::string ProfitStr = "Profit: " + std::to_string( ( int ) Profit ) + " ( " + std::to_string( ProfitPercentage ) + "% )";
+					std::string Leave = Exit ? "Yes" : "No";
 
-				if ( Profit > 0 )
-				{
-					Color = dpp::colors::green;
+					uint32_t Color;
+
+					if ( Profit > 0 )
+					{
+						Color = dpp::colors::green;
+					}
+					else if ( Profit < 0 )
+						Color = dpp::colors::red;
+					else
+						Color = dpp::colors::yellow;
+
+
+
+					dpp::embed embed = dpp::embed( ).
+						set_color( Color ).
+						set_title( "Finish betting" ).
+						set_description( "Created by Kun#6394" ).
+						set_thumbnail( "https://blaze.com/images/logo-icon.png" ).
+						add_field(
+							"Balance" ,
+							BalanceStr ,
+							true
+						).
+						add_field(
+							"Profit" ,
+							ProfitStr ,
+							true
+						).
+						add_field(
+							"Leave" ,
+							Leave ,
+							false
+						).
+
+						//set_image( "https://dpp.dev/DPP-Logo.png" ).
+						set_footer( dpp::embed_footer( ).set_text( "Creation Time " ).set_icon( "https://blaze.com/images/logo-icon.png" ) ).
+						set_timestamp( time( 0 ) );
+
+					bot.message_create( dpp::message( ResultsChannel , embed ) );
+
+					fs::remove( "C:\\Blaze\\result_import.json" );
 				}
-				else if ( Profit < 0 )
-					Color = dpp::colors::red;
-				else
-					Color = dpp::colors::yellow;
-
-
-
-				dpp::embed embed = dpp::embed( ).
-					set_color( Color ).
-					set_title( "Finish betting" ).
-					set_description( "Created by Kun#6394" ).
-					set_thumbnail( "https://blaze.com/images/logo-icon.png" ).
-					add_field(
-						"Balance" ,
-						BalanceStr ,
-						true
-					).
-					add_field(
-						"Profit" ,
-						ProfitStr ,
-						true
-					).
-					add_field(
-						"Leave" ,
-						Leave ,
-						false
-					).
-
-					//set_image( "https://dpp.dev/DPP-Logo.png" ).
-					set_footer( dpp::embed_footer( ).set_text( "Creation Time " ).set_icon( "https://blaze.com/images/logo-icon.png" ) ).
-					set_timestamp( time( 0 ) );
-
-				bot.message_create( dpp::message( ResultsChannel , embed ) );
-
-				fs::remove( "C:\\Blaze\\result_import.json" );
 			}
 		}
 	}

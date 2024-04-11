@@ -48,6 +48,18 @@ enum PREDICTOR_METHOD {
 class Transition {
    
 public:
+
+    bool ContainsColor(Color c) {
+
+        for ( auto Color : Colors )
+        {
+            if ( Color == c )
+                return true;
+        }
+
+        return false;
+    }
+
     std::vector<Color> Colors;
     double Weight = 0.0;
 };
@@ -55,8 +67,6 @@ public:
 class Prediction {
 public:
     Color color;
-    bool inverse;
-    int inversepos;
     float chance;
     PREDICTOR_METHOD method;
     bool PossibleWhite;
@@ -107,7 +117,7 @@ public:
     std::vector<double> crossValidate( int k = 5 );
     double getCertainty( Color c);
     double getCertaintyRecoded( Color c );
-    std::vector<Transition> GetTransitions( int size );
+    std::vector<Transition> GetTransitions( int size , int amount = -1 );
     double GetTransitionWeight( std::vector<Transition> Transitions , int position );
     Color getNextColorWithPreference( Color next_color );
     Prediction predictNext( );

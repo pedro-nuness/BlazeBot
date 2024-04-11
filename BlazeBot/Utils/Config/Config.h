@@ -98,6 +98,11 @@ public:
 			bool WaitAgainIfLose = false;
 
 			int StabilityParameterWindow = 30;
+			float MaxMedRoll = 2.f;
+			float MaxRoll = 3.f;
+			float MaxVariancy = 1.0f;
+			int RollLimit = 3;
+
 
 		}security;
 

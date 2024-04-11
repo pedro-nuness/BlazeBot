@@ -153,13 +153,11 @@ void save_cfg( bool read ) {
 		if ( !betManager.CurrentPlayer.IsSetupped( ) )
 		{
 			betManager.CurrentPlayer = Player( cfg::Get( ).Game.InitialBalance );
-			betManager.FullPlayer = Player( cfg::Get( ).Game.InitialBalance );
-
+		
 			betManager.CurrentPlayer.SetBalance( cfg::Get( ).Game.CurrentBalance );
-			betManager.FullPlayer.SetBalance( cfg::Get( ).Game.FullBalance );
 
-			betManager.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
-			betManager.FullBalanceHistory = cfg::Get( ).Game.FullBalanceHistory;
+			betManager.CurrentPlayer.BalanceHistory = cfg::Get( ).Game.BalanceHistory;
+			betManager.CurrentPlayer.FullBalanceHistory = cfg::Get( ).Game.FullBalanceHistory;
 
 			betManager.SetRedPosition( TransformVec( cfg::Get( ).Betting.automatic.RedPoint ) );
 			betManager.SetBlackPosition( TransformVec( cfg::Get( ).Betting.automatic.BlackPoint ) );
@@ -438,6 +436,16 @@ int main( int , char ** )
 
 			ImGui::Checkbox( "Predicting Options" , &cfg::Get( ).Windows.ShowPredictionWindow );
 
+			ImGui::NewLine( );
+
+			if ( ImGui::Button( "Save" ) )
+			{
+				save_cfg( false );
+				cfg::Get( ).Game.Notifications.emplace_back( Notification( Success , "Saved config!" , 3000 ) );
+			}
+
+			
+
 			if ( cfg::Get( ).Windows.SimulationGraph )
 			{
 				if ( !StartedSimulation )
@@ -449,28 +457,25 @@ int main( int , char ** )
 
 				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
 				ImGui::Begin( "Simulation Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+				ImGui::PlotLines( "##simulatedgraph" , SimulationbetManager.CurrentPlayer.BalanceHistory.data( ) , SimulationbetManager.CurrentPlayer.BalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+				ImGui::End( );
 
-				//PlotLines( const char * label , const float * values ,
-				//int values_count , int values_offset = 0 , 
-				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
-				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
 
-				ImGui::PlotLines( "##simulatedgraph" , SimulationbetManager.BalanceHistory.data( ) , SimulationbetManager.BalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
+				ImGui::Begin( "Simulation Raw Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+				ImGui::PlotLines( "##simulatedgraph" , SimulationbetManager.RawPlayer.BalanceHistory.data( ) , SimulationbetManager.RawPlayer.BalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+				ImGui::End( );
 
+				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
+				ImGui::Begin( "Simulation Full Raw Balance graph" , NULL , ImGuiWindowFlags_NoResize );
+				ImGui::PlotLines( "##simulatedgraph" , SimulationbetManager.RawPlayer.FullBalanceHistory.data( ) , SimulationbetManager.RawPlayer.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
 				ImGui::End( );
 
 
 
 				ImGui::SetNextWindowSize( ImVec2( 300 , 150 ) );
 				ImGui::Begin( "Full Simulation Balance graph" , NULL , ImGuiWindowFlags_NoResize );
-
-				//PlotLines( const char * label , const float * values ,
-				//int values_count , int values_offset = 0 , 
-				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
-				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
-
-				ImGui::PlotLines( "##fullsimulatedgraph" , SimulationbetManager.FullBalanceHistory.data( ) , SimulationbetManager.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
-
+				ImGui::PlotLines( "##fullsimulatedgraph" , SimulationbetManager.CurrentPlayer.FullBalanceHistory.data( ) , SimulationbetManager.CurrentPlayer.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
 				ImGui::NewLine( );
 				ImGui::Text( Str( "BankProfit: " , std::to_string( SimulationbetManager.BankProfit ) ).c_str( ) );
 
@@ -728,7 +733,7 @@ int main( int , char ** )
 				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
 				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
 
-				ImGui::PlotLines( "##graph" , betManager.BalanceHistory.data( ) , betManager.BalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+				ImGui::PlotLines( "##graph" , betManager.CurrentPlayer.BalanceHistory.data( ) , betManager.CurrentPlayer.BalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
 
 				ImGui::End( );
 			}
@@ -745,14 +750,14 @@ int main( int , char ** )
 				//const char * overlay_text = NULL , float scale_min = FLT_MAX , 
 				//float scale_max = FLT_MAX , ImVec2 graph_size = ImVec2( 0 , 0 ) , int stride = sizeof( float ) );
 
-				ImGui::PlotLines( "##fullgraph" , betManager.FullBalanceHistory.data( ) , betManager.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
+				ImGui::PlotLines( "##fullgraph" , betManager.CurrentPlayer.FullBalanceHistory.data( ) , betManager.CurrentPlayer.FullBalanceHistory.size( ) , 0 , NULL , FLT_MAX , FLT_MAX , ImVec2( 280 , 105 ) );
 
 				ImGui::End( );
 			}
 
 
 			if ( cfg::Get( ).Windows.ShowBetsWindow ) {
-				ImGui::SetNextWindowSize( ImVec2( 450 , 280 ) );
+				ImGui::SetNextWindowSize( ImVec2( 450 , 480 ) );
 				ImGui::Begin( "Betting Options" , NULL , ImGuiWindowFlags_NoResize );
 
 				ImGui::Checkbox( "Auto bet" , &cfg::Get( ).Betting.automatic.AutoBet );
@@ -796,8 +801,6 @@ int main( int , char ** )
 							{
 								ImGui::SliderFloat( "Protect percentage - C" , &cfg::Get( ).Betting.security.CapitalProtectPercentage , 1 , 100 );
 							}
-
-							ImGui::Checkbox( "Predict down peaks" , &cfg::Get( ).Betting.security.PredictDownPeaks );
 						}
 					}
 
@@ -817,13 +820,22 @@ int main( int , char ** )
 					ImGui::SliderFloat( "Prevent if peek is (%)" , &cfg::Get( ).Betting.security.MinimumPeakValue , 0 , 100 );
 					ImGui::SliderInt( "Waiting Time (minutes)" , &cfg::Get( ).Betting.security.WaitingTime , 1 , 120 );
 				}
-
-				ImGui::Checkbox( "Play only on stable moments" , &cfg::Get( ).Betting.security.PlayOnlyOnStableMoments );
-
 				
 				ImGui::NewLine( );
 
-				ImGui::SliderInt( "Stability Parameter Window" , &cfg::Get( ).Betting.security.StabilityParameterWindow , 1 , 50 );
+				ImGui::Checkbox( "Play only on stable moments" , &cfg::Get( ).Betting.security.PlayOnlyOnStableMoments );
+				ImGui::Checkbox( "Predict down peaks" , &cfg::Get( ).Betting.security.PredictDownPeaks );
+				if ( cfg::Get( ).Betting.security.PlayOnlyOnStableMoments )
+				{
+					ImGui::SliderInt( "Stability Parameter Window" , &cfg::Get( ).Betting.security.StabilityParameterWindow , 1 , 50 );
+					ImGui::SliderInt( "Roll limit" , &cfg::Get( ).Betting.security.RollLimit , 1 , 10 );
+					ImGui::SliderFloat( "Max MedRoll" , &cfg::Get( ).Betting.security.MaxMedRoll , 1.f , 5.f );
+					ImGui::SliderFloat( "Max Roll" , &cfg::Get( ).Betting.security.MaxRoll , 1.f , 10.f );
+					ImGui::SliderFloat( "Max Variancy" , &cfg::Get( ).Betting.security.MaxVariancy , 1.f , 5.f );
+
+				}
+
+				ImGui::NewLine( );
 
 				ImGui::SliderFloat( "Target Percentage" , &cfg::Get( ).Betting.TargetParcentage , 0 , 100 );
 				ImGui::SliderFloat( "Stop if lower than %" , &cfg::Get( ).Betting.StopPercentage , 0 , 100 );

@@ -9,6 +9,7 @@
 #include "..\Utils\Utils.h"
 
 #include <filesystem>
+
 namespace fs = std::filesystem;
 
 extern bool Exist( const std::string & name );
@@ -27,12 +28,34 @@ int DoublePredictor::Total( ) {
 	return history.size( );
 }
 
+int p = 0;
+
 void DoublePredictor::addColor( ColorManagement c ) {
 
 	if ( !history.empty( ) ) {
 		Color prev = history.back( ).GetColor( );
 		std::pair<Color , Color> transition = std::make_pair( prev , c.GetColor( ) );
 		transitions[ transition ]++;
+
+		while ( history.size( ) > 20000 )
+		{
+			p++;
+			history.erase( history.begin( ) );
+
+			if ( p == 2 )
+			{
+				if ( !transitions.empty( ) )
+					transitions.erase( transitions.begin( ) );
+			}
+
+			if ( p == 3 )
+			{
+				if ( !transitions_three.empty( ) ) {
+					transitions_three.erase( transitions_three.begin( ) );
+				}
+				p = 0;
+			}
+		}
 	}
 
 	auto Value = ColorManagement( c );
@@ -119,62 +142,6 @@ std::vector<double> DoublePredictor::crossValidate( int k ) {
 	return fold_accuracies;
 }
 
-
-
-double DoublePredictor::GetTransitionWeight( std::vector<Transition> Transitions , int position ) {
-
-	if ( position > Transitions.size( ) - 1 )
-		return 0.0f;
-
-	if ( position < 0 )
-		return 0.0f;
-
-	if ( Transitions.empty( ) )
-		return 0.0f;
-
-	//Peso da transicao mais recente
-	double MaxWeight = 1.0f;
-	//Peso da ultima transicao
-	double MinWeight = 0.3;
-
-	double totalPositions = Transitions.size( ) - 1;
-	double positionFactor = ( double ) position / totalPositions;
-
-	double weight = MinWeight + ( MaxWeight - MinWeight ) * positionFactor;
-
-	return std::clamp( weight , MinWeight , MaxWeight );
-}
-
-std::vector<Transition> DoublePredictor::GetTransitions( int size ) {
-	std::vector<Transition> SortedColors;
-
-	if ( history.size( ) < size ) {
-		return SortedColors;
-	}
-	//Pegar todas as transicoes
-	std::vector<Color> TempCol;
-	for ( auto color : history )
-	{
-		if ( TempCol.size( ) < size )
-		{
-			TempCol.emplace_back( color.GetColor( ) );
-		}
-		else {
-			SortedColors.emplace_back( TempCol );
-			TempCol.clear( );
-		}
-	}
-
-	//Pegar o peso de cada uma
-	for ( int i = 0; i < SortedColors.size( ); i++ )
-	{
-		auto & transition = SortedColors.at( i );
-
-		transition.Weight = GetTransitionWeight( SortedColors , i );
-	}
-
-	return SortedColors;
-}
 
 
 double DoublePredictor::getCertaintyRecoded( Color c )
@@ -309,126 +276,124 @@ void ResetPrediction( Prediction * pred ) {
 	pred->PossibleWhite = false;
 }
 
+
+double DoublePredictor::GetTransitionWeight( std::vector<Transition> Transitions , int position ) {
+
+	if ( position > Transitions.size( ) - 1 )
+		return 0.0f;
+
+	if ( position < 0 )
+		return 0.0f;
+
+	if ( Transitions.empty( ) )
+		return 0.0f;
+
+	//Peso da transicao mais recente
+	double MaxWeight = 1.0f;
+	//Peso da ultima transicao
+	double MinWeight = 0.3;
+
+	double totalPositions = Transitions.size( ) - 1;
+	double positionFactor = ( double ) position / totalPositions;
+
+	double weight = MinWeight + ( MaxWeight - MinWeight ) * positionFactor;
+
+	return std::clamp( weight , MinWeight , MaxWeight );
+}
+
+std::vector<Transition> DoublePredictor::GetTransitions( int size, int amount ) {
+	std::vector<Transition> SortedColors;
+
+	if ( history.size( ) < size ) {
+		return SortedColors;
+	}
+	//Pegar todas as transicoes
+	std::vector<Color> TempCol;
+	for ( auto color : history )
+	{
+		if ( amount != -1 )
+		{
+			if ( SortedColors.size( ) >= amount )
+				break;
+		}
+
+		if ( TempCol.size( ) < size )
+		{
+			TempCol.emplace_back( color.GetColor( ) );
+		}
+		else {
+			SortedColors.emplace_back( TempCol );
+			TempCol.clear( );
+		}
+	}
+
+	//Pegar o peso de cada uma
+	for ( int i = 0; i < SortedColors.size( ); i++ )
+	{
+		auto & transition = SortedColors.at( i );
+
+		transition.Weight = GetTransitionWeight( SortedColors , i );
+	}
+
+	return SortedColors;
+}
+
 double DoublePredictor::getCertainty( Color c ) {
 	if ( history.empty( ) ) {
 		return 0.0;
 	}
 
-	int size = 15;
+	//Game size
+	int DefaultWindowSize = 15;
+	int WindowMultiplier = 2;
+	std::vector<Transition> GameTransitions = GetTransitions( WindowMultiplier , DefaultWindowSize );
 
-	size_t window_size = size;
-	double alpha = 0.5;
-	double color_chance = 0.0;
+	auto LatestColor = history[ history.size( ) - 1 ].GetColor( );
 
-	switch ( c ) {
-	case White:
-		color_chance = white_chance;
-		break;
-	case Red:
-		color_chance = red_chance;
-		break;
-	case Blue:
-		color_chance = blue_chance;
-		break;
-	}
-
-
-	float ColorPresence = 0.0f;
-
-	for ( auto color : history )
+	if ( LatestColor == c )
 	{
-		if ( color.GetColor( ) == c )
-			ColorPresence++;
-	}
-	ColorPresence /= history.size( );
+		double TotalSequenceChance = 0.0;
+		double TotalAttempts = 0.0;
 
-
-	//Fixed entropy and color presence
-	auto ColorEntropy = -ColorPresence * log2( ColorPresence ) - ( 1 - ColorPresence ) * log2( 1 - ColorPresence );
-
-	std::vector<double> SmoothedHistory( history.size( ) , 0 );
-	SmoothedHistory[ 0 ] = ( history[ 0 ].GetColor( ) == c ) ? 1.0 : 0.0;
-	for ( size_t i = 1; i < history.size( ); i++ ) {
-
-		double base_value = history[ i ].GetColor( ) == c ? 1.0 : 0.0;
-		double reverse_value = 1.0 - alpha;
-
-		SmoothedHistory[ i ] = ( alpha * base_value ) + ( reverse_value * SmoothedHistory[ i - 1 ] );
-	}
-
-	double predicted_probability = 0.0;
-	if ( history.size( ) >= window_size ) {
-		std::vector<double> probabilities_vector( window_size , 0 );
-		for ( size_t i = 0; i < window_size; i++ ) {
-			probabilities_vector[ i ] = SmoothedHistory[ history.size( ) - window_size + i ];
-		}
-		predicted_probability = std::accumulate( probabilities_vector.begin( ) , probabilities_vector.end( ) , 0.0 ) / probabilities_vector.size( );
-	}
-
-	size_t season_length = window_size;
-	if ( season_length > 0 && history.size( ) >= season_length ) {
-		size_t num_seasons = history.size( ) / season_length;
-		double total_occurrences = 0.0;
-		for ( size_t i = 0; i < num_seasons; i++ ) {
-			size_t start_index = i * season_length;
-			size_t end_index = ( std::min ) ( ( i + 1 ) * season_length , history.size( ) );
-			double event_occurrences = 0.0;
-			double total_events = 0.0;
-			for ( size_t j = start_index; j < end_index; j++ ) {
-				if ( history[ j ].GetColor( ) == c ) {
-					event_occurrences += ( 1.0 );
+		for ( auto transition : GameTransitions )
+		{
+			int totalOccurrences = 0;
+			int matchCount = 0;
+			for ( size_t i = 0; i < transition.Colors.size( ); i++ )
+			{
+				// Check if color matches the input color
+				if ( transition.Colors[ i ] == c )
+				{
+					totalOccurrences++;
+					// Check if the next color also matches (and we are not at the end)
+					if ( i < transition.Colors.size( ) - 1 && transition.Colors[ i + 1 ] == c )
+					{
+						matchCount++;
+					}
 				}
-				total_events += 1.0;
 			}
-			total_occurrences += event_occurrences / total_events;
-		}
-		double average_occurrences = total_occurrences / num_seasons;
-		predicted_probability = predicted_probability + average_occurrences;
-	}
 
-	double laplaceConstant = 1.0;
+			// We need to check if there were any occurrences before we add to the weight
+			if ( totalOccurrences > 0 )
+			{
+				// Calculate the weight for this transition. matchCount / totalOccurrences will give the proportion of times the color repeats.
+				double ChanceOfSequence = transition.Weight * ( ( double ) matchCount / totalOccurrences );
+				TotalSequenceChance += ChanceOfSequence;
+			}
 
-	double weightedCountCC = 0.0;
-	double weightedCountCCC = 0.0;
-	double totalWeight = 0.0;
-	for ( size_t i = 1; i < history.size( ); i++ ) {
-		double weight = pow( alpha , history.size( ) - i - 1 );
-		totalWeight += weight;
-
-		if ( history[ i - 1 ].GetColor( ) == c && history[ i ].GetColor( ) == c ) {
-			double transitionCountCC = transitions[ {history[ i - 1 ].GetColor( ) , history[ i ].GetColor( )} ];
-			transitionCountCC *= color_chance;
-			weightedCountCC += ( transitionCountCC + laplaceConstant ) * weight;
+			// Add the transition weight to the total weight (whether or not the color was present)
+			TotalAttempts += 1;
 		}
 
-		if ( i > 1 && history[ i - 2 ].GetColor( ) == c && history[ i - 1 ].GetColor( ) == c && history[ i ].GetColor( ) == c ) {
-			double transitionCountCCC = transitions_three[ {history[ i - 2 ].GetColor( ) , { history[ i - 1 ].GetColor( ), history[ i ].GetColor( ) }} ];
-			transitionCountCCC *= color_chance;
-			weightedCountCCC += ( transitionCountCCC + laplaceConstant ) * weight;
+		if ( TotalAttempts + TotalSequenceChance )
+		{
+			return TotalAttempts / TotalSequenceChance;
 		}
 	}
+	else {
 
-	double transitionProbCC = weightedCountCC / ( totalWeight * ( history.size( ) - 1 + 2 * laplaceConstant ) );
-	double transitionProbCCC = weightedCountCCC / ( totalWeight * ( history.size( ) - 2 + 3 * laplaceConstant ) );
-	double combinedTransitionProb = 0.5 * transitionProbCC + 0.5 * transitionProbCCC;
 
-	if ( combinedTransitionProb ) {
-		predicted_probability += combinedTransitionProb;
-		predicted_probability /= 3;
 	}
-
-	double bayesian_probability = 0.0;
-	if ( predicted_probability > 0 ) {
-		double prior_mean = ColorPresence;
-		double prior_var = 0.1;
-		double likelihood_mean = predicted_probability;
-		double likelihood_var = 0.01;
-		double posterior_var = 1.0 / ( 1.0 / prior_var + 1.0 / likelihood_var );
-		double posterior_mean = posterior_var * ( prior_mean / prior_var + likelihood_mean / likelihood_var );
-		bayesian_probability = std::clamp( posterior_mean , 0.0 , 1.0 );
-	}
-
-	return bayesian_probability;
 }
 
 Color DoublePredictor::CertaintyPrediction( ) {
@@ -701,76 +666,6 @@ Color DoublePredictor::StreakSolve( ) {
 	}
 
 	return Null;
-
-	//Streak BeforeStreak = isStreak( streak.StreakSize );
-	//if ( streak.StreakSize >= 2 ) {
-	//	// We have a streak, let's see it
-	//	Color inversecolor = InverseColor( streak.color );
-	//
-	//	if ( streak.StreakSize >= cfg::Get( ).Prediction.IgnoreStreakAfter ) {
-	//		// We have a big streak, don't bet anything
-	//		// R, R, R, R -> ?
-	//		return Null;
-	//	}
-	//	else {
-	//
-	//		static int StartPos = 0;
-	//
-	//		if ( streak.StreakSize == 2 )
-	//			StartPos = 0;
-	//
-	//		Color OldColor = Null;
-	//		std::vector<int> PresentStreaks;
-	//		int Size;
-	//		//Get Most Present Streak size
-	//		for ( int i = GameTransition.Colors.size( ) - streak.StreakSize + 1; i > 0; i-- )
-	//		{
-	//			auto color = GameTransition.Colors.at( i );
-	//
-	//			if ( OldColor != Null )
-	//			{
-	//				if ( color == OldColor ) {
-	//					Size++;
-	//				}
-	//				else if ( Size ) {
-	//					PresentStreaks.emplace_back( Size + 1 );
-	//					Size = 0;
-	//				}
-	//			}
-	//
-	//			OldColor = color;
-	//		}
-	//
-	//		if ( !PresentStreaks.empty( ) )
-	//		{
-	//			int MostPresentStreak = findMostFrequent( PresentStreaks );
-	//
-	//			if ( MostPresentStreak >= 2 ) {
-	//
-	//				std::cout << "Streak BetPos: " << MostPresentStreak << std::endl;
-	//
-	//				// Small streak, try inverse color every 2 streaks
-	//				// R, R -> B, R, R, R, R -> B
-	//				if ( streak.StreakSize == StartPos + MostPresentStreak )
-	//				{
-	//					if ( inversecolor != Null ) {
-	//						StartPos = streak.StreakSize;
-	//
-	//						return inversecolor;
-	//					}
-	//
-	//				}
-	//			}
-	//		}
-	//
-	//		return Null;
-	//	}
-	//}
-	//else if ( BeforeStreak.StreakSize >= 4 )
-	//{
-	//
-	//
-	//}
 }
 
 
@@ -1261,16 +1156,16 @@ Prediction DoublePredictor::predictNext( ) {
 
 	SetupVote( PatterPrediction , FOUND_PATTERN );
 
-	//Color CertaintyPred = CertaintyPrediction( );
+	Color CertaintyPred = CertaintyPrediction( );
 
-	//SetupVote( CertaintyPred , CERTAINTY );
+	SetupVote( CertaintyPred , CERTAINTY );
 
 	std::cout << "\nRed votes: " << RedPoints << std::endl;
 	std::cout << "Black votes: " << BlackPoints << std::endl;
 
 	Color GeneralPred = Null;
 
-	if ( RedPoints + BlackPoints >= 2 && RedPoints != BlackPoints )
+	if ( RedPoints + BlackPoints > 2 && RedPoints != BlackPoints )
 	{
 		if ( RedPoints > BlackPoints )
 		{

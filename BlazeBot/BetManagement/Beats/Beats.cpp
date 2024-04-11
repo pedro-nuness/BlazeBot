@@ -140,69 +140,36 @@ bool Beats::OnBadTrip( ) {
 
 bool Beats::OnBetPattern( int startpos ) {
 
-	int max = cfg::Get( ).Betting.security.StabilityParameterWindow;
-	int count = 0;
-	int Roll = 0;
-	float MedRoll = 0;
-	int MaxRoll = 0;
-
-	std::vector<float> roll_loses;
-
-	if ( Results.size( ) <= max )
+	if ( !NotUnstable( ) )
 		return false;
 
-	for ( int i = Results.size( ) - 1; i > Results.size( ) - max; i-- )
+	int CurrentRoll = -1;
+
+	for ( int i = Results.size( ) - 1; i > 0; i-- )
 	{
 		if ( Results[ i ] == LOSE )
 		{
-			Roll++;
+			CurrentRollLose++;
 		}
-		else if ( Roll ) {
-			if ( Roll > MaxRoll )
-				MaxRoll = Roll;
-
-			roll_loses.emplace_back( Roll );
-
-			MedRoll += Roll;
-			Roll = 0;
-		}
-
+		else
+			break;
 	}
 
-	MedRoll = Utils::Get( ).aproximaFloat( MedRoll / roll_loses.size( ) );
-
-	float variancy = 0.0f;
-
-	for ( auto roll : roll_loses )
+	if ( CurrentRoll )
 	{
-		//Squared
-		variancy += maths::Sqr( fabs( roll - MedRoll ) );
-	}
-
-	variancy = Utils::Get( ).aproximaFloat( variancy / roll_loses.size( ) );
-
-	Roll = 0;
-
-	if ( MedRoll < 2.0 && MaxRoll <= 2.0 && variancy < 1.0 ) {
-
-		for ( int i = Results.size( ) - 1; i > 0; i-- )
+		if ( CurrentRoll >= cfg::Get( ).Betting.security.RollLimit )
 		{
-			if ( Results[ i ] == LOSE )
-			{
-				Roll++;
-			}
-			else
-				break;
-		}
-
-		if ( Roll >= MedRoll )
 			return true;
+		}
 	}
+	else
+		return true;
+
 
 	return false;
 }
 
-bool Beats::StableMoment( ) {
+bool Beats::NotUnstable( ) {
 
 	int max = cfg::Get( ).Betting.security.StabilityParameterWindow;
 	int count = 0;
@@ -216,16 +183,23 @@ bool Beats::StableMoment( ) {
 	if ( Results.size( ) <= max )
 		return false;
 
-	for ( int i = Results.size( ) - 1; i > Results.size( ) - max; i-- )
+	for ( int i = Results.size( ) - 1; i > 0; i-- )
+	{
+		if ( Results[ i ] == LOSE )
+		{
+			CurrentRollLose++;
+		}
+		else
+			break;
+	}
+
+	for ( int i = Results.size( ) - CurrentRollLose + 1; i > Results.size( ) - ( max + CurrentRollLose ); i-- )
 	{
 		if ( Results[ i ] == LOSE )
 		{
 			Roll++;
 		}
 		else {
-
-			if ( CurrentRoll == -1 )
-				CurrentRoll = Roll;
 
 			if ( Roll ) {
 
@@ -253,22 +227,42 @@ bool Beats::StableMoment( ) {
 
 	variancy = variancy / roll_loses.size( );
 
-	if ( MedRoll < 2.0 && MaxRoll <= 2.0 && variancy < 1.0 )
+	if ( MedRoll <= cfg::Get( ).Betting.security.MaxMedRoll && MaxRoll <= cfg::Get( ).Betting.security.MaxRoll && variancy <= cfg::Get( ).Betting.security.MaxVariancy )
 	{
-		if ( CurrentRoll )
-		{
-			if ( CurrentRoll <= MedRoll )
-			{
-				return true;
-			}
-
-			return false;
-		}
-
 		return true;
 	}
 
 	return false;
+}
+
+bool Beats::StableMoment( ) {
+
+	if ( !NotUnstable( ) )
+		return false;
+
+	int CurrentRoll = -1;
+
+	for ( int i = Results.size( ) - 1; i > 0; i-- )
+	{
+		if ( Results[ i ] == LOSE )
+		{
+			CurrentRollLose++;
+		}
+		else
+			break;
+	}
+
+	if ( CurrentRoll )
+	{
+		if ( CurrentRoll < cfg::Get( ).Betting.security.RollLimit )
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	return true;
 }
 
 
