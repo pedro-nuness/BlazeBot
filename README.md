@@ -71,6 +71,23 @@ O DoublePredictor é responsável por prever os resultados futuros com base em a
 7. Inicie o sistema de apostas automático.
 8. Acompanhe os resultados e ajuste as configurações conforme necessário.
 
+# DiscordBot 
+
+![image](https://github.com/pedro-nuness/BlazeBot/assets/93084039/22133035-b158-4c4a-ba3e-49ddd569a435)
+
+## Funcionalidades Principais:
+- ```Predição Automática:``` O bot pode iniciar automaticamente a predição em canais específicos do Discord. Isso permite que os usuários iniciem e interrompam as predições conforme necessário.
+
+- ```Monitoramento de Resultados:``` O BlazeBot monitora continuamente os resultados das apostas. Ele processa arquivos JSON para extrair informações sobre o saldo do jogador, lucros, cores apostadas e precisão das previsões.
+
+- ```Envio de Mensagens Automáticas:``` Com base nos resultados das apostas, o bot gera mensagens formatadas com informações relevantes, como saldo final, lucro, cores apostadas e precisão das previsões. Essas mensagens são enviadas para os canais designados no Discord.
+
+- ```Geração de Gráficos:``` Além das mensagens formatadas, o bot para discord também gera gráficos que mostram a evolução do saldo do jogador ao longo do tempo. Esses gráficos são anexados às mensagens enviadas para o Discord.
+
+- ```Comandos de Controle:``` O bot oferece comandos de controle, como "clear" para limpar o chat, "shutdown" para desligar o computador e "exit" para encerrar o bot. Isso permite que os administradores controlem remotamente o comportamento das apostas remotamente.
+
 ### Referências
 <a href="https://github.com/ocornut/imgui">ImGui</a> <br />
-<a href="https://pytorch.org/">PyTorch</a>
+<a href="https://pytorch.org/">PyTorch</a> <br />
+<a href="https://github.com/brainboxdotcc/DPP">DPP </a> <br />
+<a href="https://github.com/SFML/SFML">SFML</a>
